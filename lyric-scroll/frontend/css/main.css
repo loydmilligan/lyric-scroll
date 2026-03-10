@@ -122,6 +122,18 @@ html, body {
     color: var(--text-secondary);
 }
 
+#info-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#version {
+    font-size: 12px;
+    color: var(--text-dimmed);
+    font-family: monospace;
+}
+
 #settings-btn {
     background: none;
     border: none;
