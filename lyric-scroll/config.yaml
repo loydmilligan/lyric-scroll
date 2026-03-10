@@ -9,10 +9,14 @@ arch:
   - armv7
 startup: application
 boot: auto
+init: false
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:microphone-variant
 panel_title: Lyrics
+homeassistant_api: true
+hassio_api: true
+auth_api: true
 options:
   media_players: []
   sync_offset_ms: 0
@@ -21,7 +25,7 @@ options:
   font_size: large
 schema:
   media_players:
-    - entity_id?
+    - str?
   sync_offset_ms: int
   display_mode: list(scroll|page|focus)
   theme: list(dark|light|oled)
