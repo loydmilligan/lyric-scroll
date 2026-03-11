@@ -185,6 +185,44 @@ html, body {
     overflow: hidden;
 }
 
+/* Album art sizes */
+#album-art-container.side.art-small {
+    width: 120px;
+    height: 120px;
+}
+
+#album-art-container.side.art-medium {
+    width: 180px;
+    height: 180px;
+}
+
+#album-art-container.side.art-large {
+    width: 250px;
+    height: 250px;
+}
+
+#album-art-container.side.art-xlarge {
+    width: 320px;
+    height: 320px;
+}
+
+/* Adjust lyrics padding for different sizes */
+.has-side-art.art-small #lyrics-container {
+    padding-left: 170px;
+}
+
+.has-side-art.art-medium #lyrics-container {
+    padding-left: 240px;
+}
+
+.has-side-art.art-large #lyrics-container {
+    padding-left: 310px;
+}
+
+.has-side-art.art-xlarge #lyrics-container {
+    padding-left: 380px;
+}
+
 #album-art {
     width: 100%;
     height: 100%;

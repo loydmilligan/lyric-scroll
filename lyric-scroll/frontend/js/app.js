@@ -1,6 +1,6 @@
 /**
  * Lyric Scroll - Frontend Application
- * Version: 0.3.4
+ * Version: 0.3.5
  */
 
 class LyricScroll {
@@ -24,7 +24,8 @@ class LyricScroll {
         this.settings = {
             theme: 'dark',
             offsetMs: 0,
-            artPosition: 'left'  // left, right, hidden
+            artPosition: 'left',  // left, right, hidden
+            artSize: 'medium'     // small, medium, large, xlarge
         };
 
         // DOM elements
@@ -46,6 +47,7 @@ class LyricScroll {
         this.offsetSlider = document.getElementById('offset-slider');
         this.offsetValue = document.getElementById('offset-value');
         this.artPositionSelect = document.getElementById('art-position');
+        this.artSizeSelect = document.getElementById('art-size');
 
         this.init();
     }
@@ -95,6 +97,12 @@ class LyricScroll {
         }
         this.applyArtPosition();
 
+        // Apply art size
+        if (this.artSizeSelect) {
+            this.artSizeSelect.value = this.settings.artSize;
+        }
+        this.applyArtSize();
+
         // Update theme button active state
         this.updateThemeButtons();
     }
@@ -127,6 +135,17 @@ class LyricScroll {
         }
     }
 
+    applyArtSize() {
+        const size = this.settings.artSize;
+        // Remove all size classes
+        this.albumArtContainer.classList.remove('art-small', 'art-medium', 'art-large', 'art-xlarge');
+        document.body.classList.remove('art-small', 'art-medium', 'art-large', 'art-xlarge');
+
+        // Add current size class
+        this.albumArtContainer.classList.add(`art-${size}`);
+        document.body.classList.add(`art-${size}`);
+    }
+
     openSettings() {
         this.settingsPanel.classList.remove('hidden');
     }
@@ -152,7 +171,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.3.4 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.3.5 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -408,8 +427,9 @@ class LyricScroll {
         this.albumArtContainer.classList.add(mode);
         this.albumArtState = mode;
 
-        // Apply position setting
+        // Apply position and size settings
         this.applyArtPosition();
+        this.applyArtSize();
 
         // Update body class for lyrics container adjustment
         if (mode === 'side') {
@@ -540,6 +560,13 @@ class LyricScroll {
                 this.showAlbumArt(this.albumArtUrl, 'side');
             }
 
+            this.saveSettings();
+        });
+
+        // Album art size
+        this.artSizeSelect.addEventListener('change', (e) => {
+            this.settings.artSize = e.target.value;
+            this.applyArtSize();
             this.saveSettings();
         });
 
