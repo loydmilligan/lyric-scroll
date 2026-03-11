@@ -464,6 +464,81 @@ html, body {
     margin-top: 8px;
 }
 
+/* Help icon tooltip */
+.setting-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 11px;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    cursor: help;
+    flex-shrink: 0;
+}
+
+.help-icon:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.setting-with-help {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Display mapping visual */
+.mapping-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+}
+
+.mapping-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.mapping-player-name {
+    flex: 1;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mapping-arrow {
+    font-size: 16px;
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+.mapping-select {
+    flex: 1;
+    min-width: 120px;
+}
+
+.mapping-display-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+#ma-display-mappings h4 {
+    margin-bottom: 12px;
+}
+
 .theme-buttons {
     display: flex;
     gap: 8px;

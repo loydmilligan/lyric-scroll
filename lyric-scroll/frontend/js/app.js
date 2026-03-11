@@ -640,17 +640,31 @@ class LyricScroll {
             const mappingDiv = document.createElement('div');
             mappingDiv.className = 'mapping-item';
 
-            const label = document.createElement('label');
-            label.textContent = `${player.friendly_name || player.entity_id}:`;
+            // Speaker icon
+            const speakerIcon = document.createElement('span');
+            speakerIcon.className = 'mapping-icon';
+            speakerIcon.textContent = '🔊';
+            speakerIcon.title = 'Music Player';
 
+            // Player name
+            const playerName = document.createElement('span');
+            playerName.className = 'mapping-player-name';
+            playerName.textContent = player.friendly_name || player.entity_id;
+
+            // Arrow
+            const arrow = document.createElement('span');
+            arrow.className = 'mapping-arrow';
+            arrow.textContent = '→';
+
+            // Display select
             const select = document.createElement('select');
-            select.className = 'ma-display-select';
+            select.className = 'ma-display-select mapping-select';
             select.dataset.playerId = playerId;
 
             // Add "None" option
             const noneOption = document.createElement('option');
             noneOption.value = '';
-            noneOption.textContent = 'None';
+            noneOption.textContent = 'No display';
             select.appendChild(noneOption);
 
             // Add display options
@@ -664,14 +678,23 @@ class LyricScroll {
                 select.appendChild(option);
             });
 
+            // Display/lyrics icon
+            const displayIcon = document.createElement('span');
+            displayIcon.className = 'mapping-display-icon';
+            displayIcon.textContent = '📺';
+            displayIcon.title = 'Lyrics Display';
+
             // Add change listener
             select.addEventListener('change', (e) => {
                 this.settings.maDisplayMappings[playerId] = e.target.value;
                 this.saveMASettings();
             });
 
-            label.appendChild(select);
-            mappingDiv.appendChild(label);
+            mappingDiv.appendChild(speakerIcon);
+            mappingDiv.appendChild(playerName);
+            mappingDiv.appendChild(arrow);
+            mappingDiv.appendChild(select);
+            mappingDiv.appendChild(displayIcon);
             this.maMappingList.appendChild(mappingDiv);
         });
     }

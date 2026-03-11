@@ -56,7 +56,7 @@
                 <span id="track-artist">-</span>
             </div>
             <div id="info-bar-right">
-                <span id="version">v0.4.1</span>
+                <span id="version">v0.4.2</span>
                 <button id="settings-btn" title="Settings">⚙️</button>
             </div>
         </div>
@@ -109,22 +109,31 @@
 
             <div class="settings-section">
                 <h3>Music Assistant</h3>
-                <label>
-                    Available Players:
+                <label class="setting-with-help">
+                    <span class="setting-title">
+                        Players to Track
+                        <span class="help-icon" title="Select which Music Assistant players to monitor. Only selected players will appear in the mappings below and can be used for playlist queuing.">?</span>
+                    </span>
                     <select id="ma-players" multiple size="5">
                         <option disabled>Loading players...</option>
                     </select>
                 </label>
-                <label>
-                    Default Player:
+                <label class="setting-with-help">
+                    <span class="setting-title">
+                        Default Queue Target
+                        <span class="help-icon" title="When queuing tracks via the API without specifying a player, this player will be used. Useful for AI/automation integrations.">?</span>
+                    </span>
                     <select id="ma-default-player">
                         <option value="">None</option>
                     </select>
                 </label>
                 <div id="ma-display-mappings">
-                    <h4>Display Mappings</h4>
+                    <h4 class="setting-title">
+                        Player → Display Mapping
+                        <span class="help-icon" title="Map each music player to a display where lyrics should be shown. When music plays on a player, lyrics will be cast to its mapped display.">?</span>
+                    </h4>
                     <div id="ma-mapping-list">
-                        <!-- Mappings will be populated here -->
+                        <!-- Mappings will be populated dynamically with speaker → display icons -->
                     </div>
                 </div>
             </div>
