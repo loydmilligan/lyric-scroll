@@ -104,7 +104,9 @@ class LyricScrollApp:
                 "track": {
                     "title": track.title,
                     "artist": track.artist,
-                    "album": track.album
+                    "album": track.album,
+                    "year": track.year,
+                    "album_art_url": track.album_art_url
                 }
             }
         })
@@ -122,7 +124,9 @@ class LyricScrollApp:
                     "track": {
                         "title": track.title,
                         "artist": track.artist,
-                        "album": track.album
+                        "album": track.album,
+                        "year": track.year,
+                        "album_art_url": track.album_art_url
                     },
                     "lyrics": [
                         {"timestamp_ms": line.timestamp_ms, "text": line.text}
@@ -140,7 +144,10 @@ class LyricScrollApp:
                 "data": {
                     "track": {
                         "title": track.title,
-                        "artist": track.artist
+                        "artist": track.artist,
+                        "album": track.album,
+                        "year": track.year,
+                        "album_art_url": track.album_art_url
                     }
                 }
             })
@@ -175,7 +182,9 @@ class LyricScrollApp:
                         "track": {
                             "title": self.current_track.title,
                             "artist": self.current_track.artist,
-                            "album": self.current_track.album
+                            "album": self.current_track.album,
+                            "year": self.current_track.year,
+                            "album_art_url": self.current_track.album_art_url
                         },
                         "lyrics": [
                             {"timestamp_ms": line.timestamp_ms, "text": line.text}

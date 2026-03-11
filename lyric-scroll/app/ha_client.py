@@ -146,13 +146,29 @@ class HAClient:
         duration_sec = attributes.get("media_duration", 0) or 0
         content_type = attributes.get("media_content_type", "")
 
+        # Get album art URL - try multiple attribute names
+        album_art_url = (
+            attributes.get("entity_picture", "") or
+            attributes.get("media_image_url", "") or
+            ""
+        )
+
         if title or artist:
+            # Year might be int or str
+            year = attributes.get("media_album_year", "")
+            if year is not None:
+                year = str(year)
+            else:
+                year = ""
+
             track = TrackInfo(
                 title=title,
                 artist=artist,
                 album=attributes.get("media_album_name", ""),
                 duration_ms=int(duration_sec * 1000),
-                content_type=content_type
+                content_type=content_type,
+                album_art_url=album_art_url,
+                year=year
             )
 
         position_ms = int(attributes.get("media_position", 0) * 1000)

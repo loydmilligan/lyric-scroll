@@ -12,6 +12,8 @@ class TrackInfo:
     album: str = ""
     duration_ms: int = 0
     content_type: str = ""  # music, video, tvshow, etc.
+    album_art_url: str = ""  # From entity_picture or media_image_url
+    year: str = ""  # Release year if available
 
     def __eq__(self, other):
         if not isinstance(other, TrackInfo):

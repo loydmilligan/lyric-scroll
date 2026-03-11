@@ -4,10 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lyric Scroll</title>
-    <link rel="stylesheet" href="css/main.css?v=0.2.1">
+    <link rel="stylesheet" href="css/main.css?v=0.3.0">
 </head>
 <body>
     <div id="app">
+        <!-- Album Art Container -->
+        <div id="album-art-container" class="hidden">
+            <img id="album-art" src="" alt="Album Art">
+        </div>
+
+        <!-- Track Info Overlay (MTV style) -->
+        <div id="track-overlay" class="hidden">
+            <div class="track-artist"></div>
+            <div class="track-title"></div>
+            <div class="track-album"></div>
+        </div>
+
         <div id="lyrics-container">
             <div id="lyrics-content">
                 <!-- Lyrics will be inserted here -->
@@ -25,12 +37,12 @@
                 <span id="track-artist">-</span>
             </div>
             <div id="info-bar-right">
-                <span id="version">v0.2.1</span>
+                <span id="version">v0.3.0</span>
                 <button id="settings-btn" title="Settings">⚙️</button>
             </div>
         </div>
     </div>
 
-    <script src="js/app.js?v=0.2.1"></script>
+    <script src="js/app.js?v=0.3.0"></script>
 </body>
 </html>
