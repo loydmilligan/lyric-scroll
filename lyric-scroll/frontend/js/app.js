@@ -25,7 +25,10 @@ class LyricScroll {
             theme: 'dark',
             offsetMs: 0,
             artPosition: 'left',  // left, right, hidden
-            artSize: 'medium'     // small, medium, large, xlarge
+            artSize: 'medium',    // small, medium, large, xlarge
+            maPlayers: [],        // selected Music Assistant players
+            maDefaultPlayer: '',  // default MA player
+            maDisplayMappings: {} // player -> display mappings
         };
 
         // DOM elements
@@ -48,6 +51,15 @@ class LyricScroll {
         this.offsetValue = document.getElementById('offset-value');
         this.artPositionSelect = document.getElementById('art-position');
         this.artSizeSelect = document.getElementById('art-size');
+
+        // Music Assistant elements
+        this.maPlayersSelect = document.getElementById('ma-players');
+        this.maDefaultPlayerSelect = document.getElementById('ma-default-player');
+        this.maMappingList = document.getElementById('ma-mapping-list');
+
+        // MA data
+        this.maPlayers = [];
+        this.maDisplays = [];
 
         this.init();
     }
@@ -146,8 +158,10 @@ class LyricScroll {
         document.body.classList.add(`art-${size}`);
     }
 
-    openSettings() {
+    async openSettings() {
         this.settingsPanel.classList.remove('hidden');
+        // Fetch MA data when settings are opened
+        await this.fetchMAData();
     }
 
     closeSettings() {
@@ -509,6 +523,181 @@ class LyricScroll {
         }
     }
 
+    // Music Assistant API methods
+    async fetchMAData() {
+        try {
+            // Fetch players, displays, and settings in parallel
+            const [playersRes, displaysRes, settingsRes] = await Promise.all([
+                fetch('/api/ma/players'),
+                fetch('/api/ma/displays'),
+                fetch('/api/settings')
+            ]);
+
+            if (playersRes.ok) {
+                this.maPlayers = await playersRes.json();
+                this.populateMAPlayers();
+            }
+
+            if (displaysRes.ok) {
+                this.maDisplays = await displaysRes.json();
+            }
+
+            if (settingsRes.ok) {
+                const serverSettings = await settingsRes.json();
+                // Merge server settings with local settings
+                if (serverSettings.maPlayers) {
+                    this.settings.maPlayers = serverSettings.maPlayers;
+                }
+                if (serverSettings.maDefaultPlayer) {
+                    this.settings.maDefaultPlayer = serverSettings.maDefaultPlayer;
+                }
+                if (serverSettings.maDisplayMappings) {
+                    this.settings.maDisplayMappings = serverSettings.maDisplayMappings;
+                }
+                this.updateMAUI();
+            }
+        } catch (e) {
+            console.error('Failed to fetch MA data:', e);
+        }
+    }
+
+    populateMAPlayers() {
+        this.maPlayersSelect.innerHTML = '';
+
+        if (this.maPlayers.length === 0) {
+            this.maPlayersSelect.innerHTML = '<option disabled>No players available</option>';
+            return;
+        }
+
+        this.maPlayers.forEach(player => {
+            const option = document.createElement('option');
+            option.value = player.id;
+            option.textContent = player.name || player.id;
+            if (this.settings.maPlayers.includes(player.id)) {
+                option.selected = true;
+            }
+            this.maPlayersSelect.appendChild(option);
+        });
+
+        // Update default player dropdown
+        this.updateDefaultPlayerOptions();
+    }
+
+    updateDefaultPlayerOptions() {
+        this.maDefaultPlayerSelect.innerHTML = '<option value="">None</option>';
+
+        const selectedPlayers = Array.from(this.maPlayersSelect.selectedOptions).map(opt => opt.value);
+
+        selectedPlayers.forEach(playerId => {
+            const player = this.maPlayers.find(p => p.id === playerId);
+            if (player) {
+                const option = document.createElement('option');
+                option.value = player.id;
+                option.textContent = player.name || player.id;
+                if (this.settings.maDefaultPlayer === player.id) {
+                    option.selected = true;
+                }
+                this.maDefaultPlayerSelect.appendChild(option);
+            }
+        });
+    }
+
+    updateMAUI() {
+        // Update selected players
+        if (this.maPlayersSelect) {
+            Array.from(this.maPlayersSelect.options).forEach(option => {
+                option.selected = this.settings.maPlayers.includes(option.value);
+            });
+        }
+
+        // Update default player
+        if (this.maDefaultPlayerSelect) {
+            this.maDefaultPlayerSelect.value = this.settings.maDefaultPlayer;
+        }
+
+        // Update display mappings
+        this.renderDisplayMappings();
+    }
+
+    renderDisplayMappings() {
+        if (!this.maMappingList) return;
+
+        this.maMappingList.innerHTML = '';
+
+        const selectedPlayers = Array.from(this.maPlayersSelect.selectedOptions).map(opt => opt.value);
+
+        if (selectedPlayers.length === 0) {
+            this.maMappingList.innerHTML = '<p class="settings-hint">Select players to configure display mappings</p>';
+            return;
+        }
+
+        selectedPlayers.forEach(playerId => {
+            const player = this.maPlayers.find(p => p.id === playerId);
+            if (!player) return;
+
+            const mappingDiv = document.createElement('div');
+            mappingDiv.className = 'mapping-item';
+
+            const label = document.createElement('label');
+            label.textContent = `${player.name || player.id}:`;
+
+            const select = document.createElement('select');
+            select.className = 'ma-display-select';
+            select.dataset.playerId = playerId;
+
+            // Add "None" option
+            const noneOption = document.createElement('option');
+            noneOption.value = '';
+            noneOption.textContent = 'None';
+            select.appendChild(noneOption);
+
+            // Add display options
+            this.maDisplays.forEach(display => {
+                const option = document.createElement('option');
+                option.value = display.id;
+                option.textContent = display.name || display.id;
+                if (this.settings.maDisplayMappings[playerId] === display.id) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+
+            // Add change listener
+            select.addEventListener('change', (e) => {
+                this.settings.maDisplayMappings[playerId] = e.target.value;
+                this.saveMASettings();
+            });
+
+            label.appendChild(select);
+            mappingDiv.appendChild(label);
+            this.maMappingList.appendChild(mappingDiv);
+        });
+    }
+
+    async saveMASettings() {
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    maPlayers: this.settings.maPlayers,
+                    maDefaultPlayer: this.settings.maDefaultPlayer,
+                    maDisplayMappings: this.settings.maDisplayMappings
+                })
+            });
+
+            if (!response.ok) {
+                console.error('Failed to save MA settings');
+            } else {
+                console.log('MA settings saved:', this.settings);
+            }
+        } catch (e) {
+            console.error('Failed to save MA settings:', e);
+        }
+    }
+
     setupEventListeners() {
         // Settings button - open panel
         document.getElementById('settings-btn').addEventListener('click', () => {
@@ -576,6 +765,30 @@ class LyricScroll {
                 this.closeSettings();
             }
         });
+
+        // Music Assistant - Players selection
+        if (this.maPlayersSelect) {
+            this.maPlayersSelect.addEventListener('change', () => {
+                const selectedPlayers = Array.from(this.maPlayersSelect.selectedOptions).map(opt => opt.value);
+                this.settings.maPlayers = selectedPlayers;
+
+                // Update default player options
+                this.updateDefaultPlayerOptions();
+
+                // Re-render display mappings
+                this.renderDisplayMappings();
+
+                this.saveMASettings();
+            });
+        }
+
+        // Music Assistant - Default player selection
+        if (this.maDefaultPlayerSelect) {
+            this.maDefaultPlayerSelect.addEventListener('change', (e) => {
+                this.settings.maDefaultPlayer = e.target.value;
+                this.saveMASettings();
+            });
+        }
     }
 }
 

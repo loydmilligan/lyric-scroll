@@ -106,6 +106,28 @@
                     </select>
                 </label>
             </div>
+
+            <div class="settings-section">
+                <h3>Music Assistant</h3>
+                <label>
+                    Available Players:
+                    <select id="ma-players" multiple size="5">
+                        <option disabled>Loading players...</option>
+                    </select>
+                </label>
+                <label>
+                    Default Player:
+                    <select id="ma-default-player">
+                        <option value="">None</option>
+                    </select>
+                </label>
+                <div id="ma-display-mappings">
+                    <h4>Display Mappings</h4>
+                    <div id="ma-mapping-list">
+                        <!-- Mappings will be populated here -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -17,6 +17,7 @@ from ha_client import HAClient
 from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
 from missing_lyrics import MissingLyricsTracker
+from ma_client import MAClient
 
 # Supervisor API for image proxy
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -37,6 +38,7 @@ class LyricScrollApp:
         self.cache = LyricsCache()
         self.fetcher = LyricsFetcher(self.cache)
         self.ha_client: Optional[HAClient] = None
+        self.ma_client = MAClient()
         self.missing_lyrics = MissingLyricsTracker()
 
         self.current_track: Optional[TrackInfo] = None
@@ -44,6 +46,10 @@ class LyricScrollApp:
         self.current_state: str = "idle"
         self.current_position_ms: int = 0
         self.active_entity: Optional[str] = None  # Which media_player we're tracking
+
+        # Settings stored in /data/settings.json
+        self.settings_path = "/data/settings.json"
+        self.settings = self._load_settings()
 
     async def on_state_change(self, state: PlaybackState) -> None:
         """Handle media player state changes from HA."""
@@ -309,6 +315,144 @@ class LyricScrollApp:
             logger.error(f"Image proxy error: {e}")
             return web.Response(status=500, text=str(e))
 
+    def _load_settings(self) -> dict:
+        """Load settings from file."""
+        default_settings = {
+            "ma_players": [],           # List of MA player entity_ids
+            "display_mappings": {},     # player_id -> display_id mapping
+            "default_player": None,     # Default MA player for queue operations
+            "default_display": None     # Default display for casting
+        }
+
+        try:
+            if os.path.exists(self.settings_path):
+                with open(self.settings_path) as f:
+                    saved = json.load(f)
+                    # Merge with defaults
+                    return {**default_settings, **saved}
+        except Exception as e:
+            logger.error(f"Error loading settings: {e}")
+
+        return default_settings
+
+    def _save_settings(self) -> bool:
+        """Save settings to file."""
+        try:
+            os.makedirs(os.path.dirname(self.settings_path), exist_ok=True)
+            with open(self.settings_path, 'w') as f:
+                json.dump(self.settings, f, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving settings: {e}")
+            return False
+
+    # ========== Settings API ==========
+
+    async def api_get_settings(self, request: web.Request) -> web.Response:
+        """Get current settings."""
+        return web.json_response(self.settings)
+
+    async def api_update_settings(self, request: web.Request) -> web.Response:
+        """Update settings."""
+        try:
+            data = await request.json()
+
+            # Update settings (only known keys)
+            for key in ["ma_players", "display_mappings", "default_player", "default_display"]:
+                if key in data:
+                    self.settings[key] = data[key]
+
+            if self._save_settings():
+                return web.json_response({"success": True, "settings": self.settings})
+            else:
+                return web.json_response({"error": "Failed to save settings"}, status=500)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=400)
+
+    # ========== Music Assistant API ==========
+
+    async def api_ma_players(self, request: web.Request) -> web.Response:
+        """Get available Music Assistant players."""
+        players = await self.ma_client.get_players()
+        return web.json_response({"players": players})
+
+    async def api_ma_displays(self, request: web.Request) -> web.Response:
+        """Get available Cast displays/speakers."""
+        devices = await self.ma_client.get_cast_devices()
+        return web.json_response({"displays": devices})
+
+    async def api_ma_search(self, request: web.Request) -> web.Response:
+        """Search Music Assistant for tracks."""
+        try:
+            data = await request.json()
+            query = data.get("query", "")
+            media_types = data.get("media_types", ["track"])
+            limit = data.get("limit", 5)
+
+            if not query:
+                return web.json_response({"error": "query required"}, status=400)
+
+            result = await self.ma_client.search(query, media_types, limit)
+            return web.json_response(result)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_ma_play(self, request: web.Request) -> web.Response:
+        """Play a track on a Music Assistant player."""
+        try:
+            data = await request.json()
+            entity_id = data.get("entity_id") or self.settings.get("default_player")
+            media_id = data.get("media_id")
+            media_type = data.get("media_type", "track")
+            enqueue = data.get("enqueue", "play")
+
+            if not entity_id:
+                return web.json_response({"error": "entity_id required"}, status=400)
+            if not media_id:
+                return web.json_response({"error": "media_id required"}, status=400)
+
+            result = await self.ma_client.play_media(entity_id, media_id, media_type, enqueue)
+            return web.json_response(result)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_ma_queue(self, request: web.Request) -> web.Response:
+        """Queue multiple tracks on a Music Assistant player.
+
+        This is the main endpoint for AI/automation playlist creation.
+
+        Body:
+            {
+                "entity_id": "media_player.office_2",  // optional if default set
+                "tracks": ["Artist - Song", "Artist - Song"],
+                "enqueue": "play"  // 'play', 'add', or 'next'
+            }
+        """
+        try:
+            data = await request.json()
+            entity_id = data.get("entity_id") or self.settings.get("default_player")
+            tracks = data.get("tracks") or data.get("songs") or []
+            enqueue = data.get("enqueue", "play")
+
+            if not entity_id:
+                return web.json_response(
+                    {"error": "entity_id required (or set default_player in settings)"},
+                    status=400
+                )
+
+            if not tracks:
+                return web.json_response({"error": "tracks array required"}, status=400)
+
+            # Handle newline-separated string
+            if isinstance(tracks, str):
+                tracks = [t.strip() for t in tracks.split("\n") if t.strip()]
+
+            result = await self.ma_client.queue_tracks(entity_id, tracks, enqueue)
+            return web.json_response(result)
+        except Exception as e:
+            logger.error(f"Queue error: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
     def create_app(self) -> web.Application:
         """Create and configure the aiohttp application."""
         app = web.Application()
@@ -324,6 +468,17 @@ class LyricScrollApp:
         app.router.add_delete('/api/missing-lyrics', self.api_missing_lyrics_delete)
         app.router.add_post('/api/missing-lyrics/clear', self.api_missing_lyrics_clear)
         app.router.add_get('/api/image-proxy', self.api_image_proxy)
+
+        # Settings API
+        app.router.add_get('/api/settings', self.api_get_settings)
+        app.router.add_post('/api/settings', self.api_update_settings)
+
+        # Music Assistant API
+        app.router.add_get('/api/ma/players', self.api_ma_players)
+        app.router.add_get('/api/ma/displays', self.api_ma_displays)
+        app.router.add_post('/api/ma/search', self.api_ma_search)
+        app.router.add_post('/api/ma/play', self.api_ma_play)
+        app.router.add_post('/api/ma/queue', self.api_ma_queue)
 
         return app
 
@@ -391,6 +546,7 @@ class LyricScrollApp:
             pass
 
         await self.fetcher.close()
+        await self.ma_client.close()
         await runner.cleanup()
         logger.info("Shutdown complete")
 
