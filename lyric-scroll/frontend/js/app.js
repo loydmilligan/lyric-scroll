@@ -9,6 +9,11 @@ class LyricScroll {
         this.currentLineIndex = -1;
         this.state = 'idle'; // idle, playing, paused
 
+        // Position interpolation
+        this.lastPositionMs = 0;
+        this.lastPositionTime = 0;  // Local timestamp when we received position
+        this.animationFrameId = null;
+
         // DOM elements
         this.lyricsContent = document.getElementById('lyrics-content');
         this.statusMessage = document.getElementById('status-message');
@@ -41,7 +46,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.2.0 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.2.1 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -108,9 +113,15 @@ class LyricScroll {
     }
 
     handleLyrics(data) {
+        // Stop any existing position tracking
+        this.stopPositionTracking();
+        this.currentLineIndex = -1;
+
         this.lyrics = data.lyrics || [];
         this.trackTitle.textContent = data.track?.title || '-';
         this.trackArtist.textContent = data.track?.artist || '-';
+
+        console.log(`Loaded ${this.lyrics.length} lyrics lines`);
 
         this.statusMessage.classList.add('hidden');
         this.renderLyrics();
@@ -120,15 +131,43 @@ class LyricScroll {
         const positionMs = data.position_ms;
         this.state = data.state;
 
-        // Debug: log position and first few lyric timestamps
-        if (this.lyrics.length > 0) {
-            const firstTs = this.lyrics[0]?.timestamp_ms;
-            const lastTs = this.lyrics[this.lyrics.length - 1]?.timestamp_ms;
-            console.log(`Position: ${positionMs}ms (${(positionMs/1000).toFixed(1)}s), Lyrics range: ${firstTs}-${lastTs}ms`);
-        }
+        // Record position and local time for interpolation
+        this.lastPositionMs = positionMs;
+        this.lastPositionTime = performance.now();
+
+        console.log(`Position update: ${(positionMs/1000).toFixed(1)}s, state: ${this.state}`);
 
         if (this.state === 'playing' && this.lyrics.length > 0) {
-            this.updateCurrentLine(positionMs);
+            this.startPositionTracking();
+        } else {
+            this.stopPositionTracking();
+        }
+    }
+
+    startPositionTracking() {
+        if (this.animationFrameId) return; // Already running
+
+        const tick = () => {
+            if (this.state !== 'playing') {
+                this.stopPositionTracking();
+                return;
+            }
+
+            // Interpolate position based on elapsed time
+            const elapsed = performance.now() - this.lastPositionTime;
+            const estimatedPosition = this.lastPositionMs + elapsed;
+
+            this.updateCurrentLine(estimatedPosition);
+            this.animationFrameId = requestAnimationFrame(tick);
+        };
+
+        this.animationFrameId = requestAnimationFrame(tick);
+    }
+
+    stopPositionTracking() {
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
         }
     }
 
@@ -145,6 +184,7 @@ class LyricScroll {
     }
 
     handleIdle() {
+        this.stopPositionTracking();
         this.state = 'idle';
         this.lyrics = [];
         this.currentLineIndex = -1;
