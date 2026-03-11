@@ -25,26 +25,45 @@ class LyricScroll {
     }
 
     connect() {
-        // Determine WebSocket URL based on current location
-        // Must include full path for HA ingress to route correctly
+        // Determine WebSocket URL
+        // HA ingress proxies /api/hassio_ingress/xxx/* to addon's /*
+        // So we just need to use relative path from current location
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const basePath = window.location.pathname.replace(/\/$/, ''); // Remove trailing slash
-        const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
 
-        console.log('Connecting to WebSocket:', wsUrl);
-        this.ws = new WebSocket(wsUrl);
+        // Try relative URL first (works with ingress proxy)
+        let wsUrl;
+        if (window.location.pathname.includes('hassio_ingress') || window.location.pathname.includes('/app/')) {
+            // HA ingress - use relative path
+            const basePath = window.location.pathname.replace(/\/$/, '');
+            wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
+        } else {
+            // Direct access
+            wsUrl = `${protocol}//${window.location.host}/ws`;
+        }
+
+        console.log('Lyric Scroll v0.1.6 - Connecting to WebSocket:', wsUrl);
+        console.log('Location:', window.location.href);
+
+        try {
+            this.ws = new WebSocket(wsUrl);
+        } catch (e) {
+            console.error('WebSocket creation failed:', e);
+            setTimeout(() => this.connect(), 3000);
+            return;
+        }
 
         this.ws.onopen = () => {
-            console.log('WebSocket connected');
+            console.log('WebSocket connected successfully');
         };
 
         this.ws.onmessage = (event) => {
+            console.log('WebSocket message received');
             const message = JSON.parse(event.data);
             this.handleMessage(message);
         };
 
-        this.ws.onclose = () => {
-            console.log('WebSocket disconnected, reconnecting in 3s...');
+        this.ws.onclose = (event) => {
+            console.log('WebSocket disconnected, code:', event.code, 'reason:', event.reason);
             setTimeout(() => this.connect(), 3000);
         };
 
