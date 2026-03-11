@@ -157,8 +157,12 @@ class HAClient:
             album_art_url = media_image_url
         elif entity_picture.startswith("http"):
             album_art_url = entity_picture
+        elif entity_picture.startswith("/api/"):
+            # HA proxy URL - route through our image proxy
+            from urllib.parse import quote
+            album_art_url = f"/api/image-proxy?path={quote(entity_picture, safe='')}"
         else:
-            # Fallback: use whatever we have (might not work in addon context)
+            # Fallback
             album_art_url = media_image_url or entity_picture
 
         if title or artist:

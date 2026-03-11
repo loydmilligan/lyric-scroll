@@ -9,6 +9,7 @@ import signal
 from dataclasses import asdict
 from typing import Optional
 
+import aiohttp
 from aiohttp import web
 
 from models import TrackInfo, PlaybackState, Lyrics
@@ -16,6 +17,9 @@ from ha_client import HAClient
 from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
 from missing_lyrics import MissingLyricsTracker
+
+# Supervisor API for image proxy
+SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 
 # Configure logging
 logging.basicConfig(
@@ -278,6 +282,33 @@ class LyricScrollApp:
         self.missing_lyrics.clear()
         return web.json_response({"success": True})
 
+    async def api_image_proxy(self, request: web.Request) -> web.Response:
+        """Proxy images from Home Assistant API."""
+        path = request.query.get("path", "")
+        if not path or not path.startswith("/api/"):
+            return web.Response(status=400, text="Invalid path")
+
+        try:
+            ha_url = f"http://supervisor/core{path}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    ha_url,
+                    headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
+                ) as resp:
+                    if resp.status != 200:
+                        return web.Response(status=resp.status)
+
+                    content_type = resp.headers.get("Content-Type", "image/jpeg")
+                    body = await resp.read()
+                    return web.Response(
+                        body=body,
+                        content_type=content_type,
+                        headers={"Cache-Control": "max-age=300"}
+                    )
+        except Exception as e:
+            logger.error(f"Image proxy error: {e}")
+            return web.Response(status=500, text=str(e))
+
     def create_app(self) -> web.Application:
         """Create and configure the aiohttp application."""
         app = web.Application()
@@ -292,6 +323,7 @@ class LyricScrollApp:
         app.router.add_get('/api/missing-lyrics', self.api_missing_lyrics)
         app.router.add_delete('/api/missing-lyrics', self.api_missing_lyrics_delete)
         app.router.add_post('/api/missing-lyrics/clear', self.api_missing_lyrics_clear)
+        app.router.add_get('/api/image-proxy', self.api_image_proxy)
 
         return app
 

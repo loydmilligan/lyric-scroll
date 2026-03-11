@@ -1,6 +1,6 @@
 /**
  * Lyric Scroll - Frontend Application
- * Version: 0.3.3
+ * Version: 0.3.4
  */
 
 class LyricScroll {
@@ -152,7 +152,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.3.3 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.3.4 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
