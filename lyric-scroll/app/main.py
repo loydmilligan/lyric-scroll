@@ -69,7 +69,8 @@ class LyricScrollApp:
                 self.current_state = state.state
 
             # Broadcast position update
-            if self.current_lyrics:
+            if self.current_lyrics and self.clients:
+                logger.info(f"Position: {state.position_ms/1000:.1f}s -> {len(self.clients)} client(s)")
                 await self.broadcast({
                     "type": "position",
                     "data": {
