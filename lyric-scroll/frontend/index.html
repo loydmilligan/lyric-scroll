@@ -56,7 +56,7 @@
                 <span id="track-artist">-</span>
             </div>
             <div id="info-bar-right">
-                <span id="version">v0.4.2</span>
+                <span id="version">v0.4.3</span>
                 <button id="settings-btn" title="Settings">⚙️</button>
             </div>
         </div>
@@ -135,6 +135,20 @@
                     <div id="ma-mapping-list">
                         <!-- Mappings will be populated dynamically with speaker → display icons -->
                     </div>
+                </div>
+                <div id="ma-autocast-settings">
+                    <h4 class="setting-title">
+                        Auto-Casting
+                        <span class="help-icon" title="Automatically cast lyrics to displays when music plays. Requires a cast receiver URL.">?</span>
+                    </h4>
+                    <label class="setting-with-help">
+                        <span class="setting-title">Enable Auto-casting</span>
+                        <input type="checkbox" id="autocast-enabled">
+                    </label>
+                    <label class="setting-with-help">
+                        <span class="setting-title">Cast URL</span>
+                        <input type="text" id="autocast-url" placeholder="http://192.168.6.8:8099">
+                    </label>
                 </div>
             </div>
         </div>

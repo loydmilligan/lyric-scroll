@@ -137,6 +137,49 @@ class HAClient:
             logger.error(f"Get states error: {e}")
             return []
 
+    async def get_entity_state(self, entity_id: str) -> Optional[dict]:
+        """Get the state of a specific entity."""
+        try:
+            states = await self.get_states()
+            for state in states:
+                if state.get("entity_id") == entity_id:
+                    return state
+            return None
+        except Exception as e:
+            logger.error(f"Get entity state error: {e}")
+            return None
+
+    async def call_service(
+        self,
+        domain: str,
+        service: str,
+        service_data: dict
+    ) -> bool:
+        """Call a Home Assistant service via WebSocket."""
+        try:
+            msg_id = await self._send({
+                "type": "call_service",
+                "domain": domain,
+                "service": service,
+                "service_data": service_data
+            })
+
+            async for msg in self._ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    data = json.loads(msg.data)
+                    if data.get("id") == msg_id:
+                        if data.get("success"):
+                            logger.debug(f"Service {domain}.{service} called successfully")
+                            return True
+                        else:
+                            logger.error(f"Service call failed: {data}")
+                            return False
+
+            return False
+        except Exception as e:
+            logger.error(f"Service call error: {e}")
+            return False
+
     def _parse_media_player_state(self, entity_id: str, state: str, attributes: dict) -> PlaybackState:
         """Parse media_player entity state into PlaybackState."""
         track = None

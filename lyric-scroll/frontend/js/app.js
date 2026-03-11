@@ -28,7 +28,9 @@ class LyricScroll {
             artSize: 'medium',    // small, medium, large, xlarge
             maPlayers: [],        // selected Music Assistant players
             maDefaultPlayer: '',  // default MA player
-            maDisplayMappings: {} // player -> display mappings
+            maDisplayMappings: {}, // player -> display mappings
+            autocastEnabled: false, // enable auto-casting
+            autocastUrl: 'http://192.168.6.8:8099' // default cast URL
         };
 
         // DOM elements
@@ -56,6 +58,8 @@ class LyricScroll {
         this.maPlayersSelect = document.getElementById('ma-players');
         this.maDefaultPlayerSelect = document.getElementById('ma-default-player');
         this.maMappingList = document.getElementById('ma-mapping-list');
+        this.autocastEnabledCheckbox = document.getElementById('autocast-enabled');
+        this.autocastUrlInput = document.getElementById('autocast-url');
 
         // MA data
         this.maPlayers = [];
@@ -556,6 +560,12 @@ class LyricScroll {
                 if (serverSettings.display_mappings) {
                     this.settings.maDisplayMappings = serverSettings.display_mappings;
                 }
+                if (serverSettings.autocast_enabled !== undefined) {
+                    this.settings.autocastEnabled = serverSettings.autocast_enabled;
+                }
+                if (serverSettings.autocast_url) {
+                    this.settings.autocastUrl = serverSettings.autocast_url;
+                }
                 this.updateMAUI();
             }
         } catch (e) {
@@ -619,6 +629,14 @@ class LyricScroll {
 
         // Update display mappings
         this.renderDisplayMappings();
+
+        // Update autocast settings
+        if (this.autocastEnabledCheckbox) {
+            this.autocastEnabledCheckbox.checked = this.settings.autocastEnabled;
+        }
+        if (this.autocastUrlInput) {
+            this.autocastUrlInput.value = this.settings.autocastUrl;
+        }
     }
 
     renderDisplayMappings() {
@@ -709,7 +727,9 @@ class LyricScroll {
                 body: JSON.stringify({
                     ma_players: this.settings.maPlayers,
                     default_player: this.settings.maDefaultPlayer,
-                    display_mappings: this.settings.maDisplayMappings
+                    display_mappings: this.settings.maDisplayMappings,
+                    autocast_enabled: this.settings.autocastEnabled,
+                    autocast_url: this.settings.autocastUrl
                 })
             });
 
@@ -811,6 +831,22 @@ class LyricScroll {
         if (this.maDefaultPlayerSelect) {
             this.maDefaultPlayerSelect.addEventListener('change', (e) => {
                 this.settings.maDefaultPlayer = e.target.value;
+                this.saveMASettings();
+            });
+        }
+
+        // Autocast - Enable/disable
+        if (this.autocastEnabledCheckbox) {
+            this.autocastEnabledCheckbox.addEventListener('change', (e) => {
+                this.settings.autocastEnabled = e.target.checked;
+                this.saveMASettings();
+            });
+        }
+
+        // Autocast - URL
+        if (this.autocastUrlInput) {
+            this.autocastUrlInput.addEventListener('change', (e) => {
+                this.settings.autocastUrl = e.target.value;
                 this.saveMASettings();
             });
         }

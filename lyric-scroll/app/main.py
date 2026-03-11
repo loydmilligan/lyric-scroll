@@ -75,6 +75,8 @@ class LyricScrollApp:
                 self.current_state = state.state
                 self.current_position_ms = state.position_ms
                 await self._fetch_and_broadcast_lyrics(state.track)
+                # Autocast to mapped display
+                await self._autocast_to_display(state.entity_id)
             else:
                 # Same track, just update position
                 self.current_position_ms = state.position_ms
@@ -321,7 +323,9 @@ class LyricScrollApp:
             "ma_players": [],           # List of MA player entity_ids
             "display_mappings": {},     # player_id -> display_id mapping
             "default_player": None,     # Default MA player for queue operations
-            "default_display": None     # Default display for casting
+            "default_display": None,    # Default display for casting
+            "autocast_enabled": False,
+            "autocast_url": "http://192.168.6.8:8099"
         }
 
         try:
@@ -346,6 +350,45 @@ class LyricScrollApp:
             logger.error(f"Error saving settings: {e}")
             return False
 
+    async def _autocast_to_display(self, player_entity_id: str) -> None:
+        """Cast Lyric Scroll to mapped display if idle."""
+        # Check if autocast is enabled
+        if not self.settings.get("autocast_enabled", False):
+            return
+
+        # Get mapped display for this player
+        display_id = self.settings.get("display_mappings", {}).get(player_entity_id)
+        if not display_id:
+            logger.debug(f"No display mapped for {player_entity_id}")
+            return
+
+        # Check if display is idle/off
+        display_state = await self.ha_client.get_entity_state(display_id)
+        if not display_state:
+            logger.warning(f"Could not get state for display {display_id}")
+            return
+
+        current_state = display_state.get("state", "")
+        if current_state not in ("idle", "off", "unavailable"):
+            logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
+            return
+
+        # Cast the URL to the display
+        cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
+        success = await self.ha_client.call_service(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": display_id,
+                "media_content_id": cast_url,
+                "media_content_type": "url"
+            }
+        )
+        if success:
+            logger.info(f"Auto-cast to {display_id}: {cast_url}")
+        else:
+            logger.warning(f"Auto-cast failed for {display_id}")
+
     # ========== Settings API ==========
 
     async def api_get_settings(self, request: web.Request) -> web.Response:
@@ -358,7 +401,7 @@ class LyricScrollApp:
             data = await request.json()
 
             # Update settings (only known keys)
-            for key in ["ma_players", "display_mappings", "default_player", "default_display"]:
+            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url"]:
                 if key in data:
                     self.settings[key] = data[key]
 
