@@ -40,7 +40,7 @@ class LyricScrollApp:
 
     async def on_state_change(self, state: PlaybackState) -> None:
         """Handle media player state changes from HA."""
-        logger.info(f"State change: {state.entity_id} -> {state.state}")
+        logger.debug(f"State change: {state.entity_id} -> {state.state}")
 
         # Update position
         self.current_position_ms = state.position_ms
@@ -48,6 +48,14 @@ class LyricScrollApp:
 
         # Check for track change
         if state.track and state.track != self.current_track:
+            # Filter out non-music content
+            if not state.track.is_likely_music():
+                logger.info(
+                    f"Skipping non-music content: {state.track.artist} - {state.track.title} "
+                    f"(type={state.track.content_type}, duration={state.track.duration_ms/1000:.0f}s)"
+                )
+                return
+
             logger.info(f"Track change: {state.track.artist} - {state.track.title}")
             self.current_track = state.track
             await self._fetch_and_broadcast_lyrics(state.track)
@@ -266,6 +274,10 @@ class LyricScrollApp:
         # Cleanup
         logger.info("Shutting down...")
         self.ha_client._running = False
+
+        # Give HA client time to disconnect gracefully
+        await self.ha_client.disconnect()
+
         ha_task.cancel()
         try:
             await ha_task
@@ -274,6 +286,7 @@ class LyricScrollApp:
 
         await self.fetcher.close()
         await runner.cleanup()
+        logger.info("Shutdown complete")
 
 
 async def main() -> None:
