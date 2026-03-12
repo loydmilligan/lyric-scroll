@@ -43,12 +43,24 @@ class LyricScroll {
         // Cast state
         this.castSender = null;
 
+        // Timeline state
+        this.songDurationMs = 0;
+        this.isDraggingScrubber = false;
+        this.timelineHideTimeout = null;
+
         // DOM elements
         this.lyricsContent = document.getElementById('lyrics-content');
         this.statusMessage = document.getElementById('status-message');
         this.statusText = document.getElementById('status-text');
         this.trackTitle = document.getElementById('track-title');
         this.trackArtist = document.getElementById('track-artist');
+
+        // Timeline elements
+        this.timelineContainer = document.getElementById('timeline-container');
+        this.timelineScrubber = document.getElementById('timeline-scrubber');
+        this.timelineProgress = document.getElementById('timeline-progress');
+        this.timelineCurrent = document.getElementById('timeline-current');
+        this.timelineDuration = document.getElementById('timeline-duration');
 
         // Album art elements
         this.albumArtContainer = document.getElementById('album-art-container');
@@ -347,6 +359,7 @@ class LyricScroll {
             const estimatedPosition = this.lastPositionMs + elapsed;
 
             this.updateCurrentLine(estimatedPosition);
+            this.updateTimeline(estimatedPosition);
             this.animationFrameId = requestAnimationFrame(tick);
         };
 
@@ -438,16 +451,25 @@ class LyricScroll {
             this.syncCheckInterval = null;
         }
 
-        // Hide album art, track overlay, and visualizer
+        // Hide album art, track overlay, visualizer, and timeline
         this.hideAlbumArt();
         this.hideTrackOverlay();
         this.showVisualizer(false);
+        this.hideTimeline();
     }
 
     renderLyrics() {
         this.lyricsContent.innerHTML = this.lyrics.map((line, index) =>
             `<div class="lyric-line" data-index="${index}">${this.escapeHtml(line.text)}</div>`
         ).join('');
+
+        // Calculate song duration from last lyric timestamp
+        if (this.lyrics.length > 0) {
+            const lastLyric = this.lyrics[this.lyrics.length - 1];
+            // Add 5 seconds buffer after last lyric
+            this.songDurationMs = lastLyric.timestamp_ms + 5000;
+            this.showTimeline(this.songDurationMs);
+        }
     }
 
     updateCurrentLine(positionMs) {
@@ -605,6 +627,53 @@ class LyricScroll {
                 visualizer.classList.add('hidden');
             }
         }
+    }
+
+    // Timeline scrubber methods
+    updateTimeline(positionMs) {
+        if (!this.timelineContainer || !this.songDurationMs) return;
+
+        const progress = Math.min(100, (positionMs / this.songDurationMs) * 100);
+
+        if (!this.isDraggingScrubber) {
+            this.timelineScrubber.value = progress;
+            this.timelineProgress.style.width = progress + '%';
+        }
+
+        this.timelineCurrent.textContent = this.formatTime(positionMs);
+    }
+
+    formatTime(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return mins + ':' + secs.toString().padStart(2, '0');
+    }
+
+    showTimeline(durationMs) {
+        if (!this.timelineContainer) return;
+
+        this.songDurationMs = durationMs;
+        this.timelineDuration.textContent = this.formatTime(durationMs);
+        this.timelineContainer.classList.remove('hidden');
+
+        // Auto-hide after 3 seconds of no interaction
+        this.scheduleTimelineHide();
+    }
+
+    hideTimeline() {
+        if (this.timelineContainer) {
+            this.timelineContainer.classList.add('hidden');
+        }
+    }
+
+    scheduleTimelineHide() {
+        if (this.timelineHideTimeout) clearTimeout(this.timelineHideTimeout);
+        this.timelineHideTimeout = setTimeout(() => {
+            if (!this.isDraggingScrubber) {
+                this.timelineContainer.classList.remove('visible');
+            }
+        }, 3000);
     }
 
     initCast() {
@@ -1091,6 +1160,35 @@ class LyricScroll {
                 this.settings.castMethod = e.target.value;
                 this.saveSettings();
                 this.saveMASettings();
+            });
+        }
+
+        // Timeline scrubber event listeners
+        if (this.timelineScrubber) {
+            this.timelineScrubber.addEventListener('input', (e) => {
+                this.isDraggingScrubber = true;
+                const progress = e.target.value / 100;
+                const newPosition = progress * this.songDurationMs;
+                this.timelineProgress.style.width = e.target.value + '%';
+                this.timelineCurrent.textContent = this.formatTime(newPosition);
+            });
+
+            this.timelineScrubber.addEventListener('change', (e) => {
+                const progress = e.target.value / 100;
+                const newPosition = progress * this.songDurationMs;
+                // Update lyrics position
+                this.lastPositionMs = newPosition;
+                this.lastPositionTime = performance.now();
+                this.updateCurrentLine(newPosition);
+                this.isDraggingScrubber = false;
+            });
+
+            this.timelineContainer.addEventListener('mouseenter', () => {
+                this.timelineContainer.classList.add('visible');
+            });
+
+            this.timelineContainer.addEventListener('mouseleave', () => {
+                this.scheduleTimelineHide();
             });
         }
     }
