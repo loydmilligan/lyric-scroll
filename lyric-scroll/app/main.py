@@ -379,13 +379,15 @@ class LyricScrollApp:
 
         # Cast the URL to the display
         cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
+        logger.info(f"Attempting to cast {cast_url} to {display_id}")
+
         success = await self.ha_client.call_service(
             "media_player",
             "play_media",
             {
                 "entity_id": display_id,
                 "media_content_id": cast_url,
-                "media_content_type": "url"
+                "media_content_type": "website"
             }
         )
         if success:

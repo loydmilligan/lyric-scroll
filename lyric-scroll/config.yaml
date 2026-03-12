@@ -1,5 +1,5 @@
 name: Lyric Scroll
-version: "0.4.4"
+version: "0.4.5"
 slug: lyric_scroll
 description: Display synchronized karaoke-style lyrics for currently playing music
 url: https://github.com/loydmilligan/lyric-scroll

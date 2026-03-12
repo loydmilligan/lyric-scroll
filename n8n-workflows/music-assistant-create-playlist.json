@@ -1,0 +1,384 @@
+{
+  "name": "Music Assistant - Create Playlist (MCP)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mcp/music-assistant/create-playlist",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (MCP Trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "mcp-music-assistant-create-playlist"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\n\nconst title = body.title ?? 'New Playlist';\nconst description = body.description ?? '';\n\nlet songs = body.songs ?? body.list ?? body.tracks;\n\n// Allow songs as newline-separated string\nif (typeof songs === 'string') {\n  songs = songs\n    .split('\\n')\n    .map(s => s.trim())\n    .filter(Boolean);\n}\n\nif (!Array.isArray(songs)) songs = [];\n\nif (!songs.length) {\n  throw new Error('No songs provided. Provide body.songs as an array or newline-separated string.');\n}\n\n// Target player entity_id (required for MA play_media)\n// IMPORTANT: Use the _2 suffix players (e.g., media_player.office_2) - these are the MA versions\nconst playerId = body.player_id ?? body.playerId ?? body.entity_id ?? 'media_player.office_2';\n\n// Enqueue mode: 'play' (replace & play), 'add' (append), 'next' (play next)\nconst enqueue = body.enqueue ?? 'play';\n\nreturn [{\n  title,\n  description,\n  songs,\n  playerId,\n  enqueue,\n  songCount: songs.length\n}];"
+      },
+      "id": "normalize-input",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Explode songs for batch processing\nconst inputData = $json;\nconst songs = inputData.songs;\nconst playerId = inputData.playerId;\nconst enqueue = inputData.enqueue;\nconst title = inputData.title;\n\nreturn songs.map((song, index) => ({\n  song,\n  songIndex: index,\n  playerId,\n  // First track uses specified enqueue mode, rest use 'add' to append\n  enqueue: index === 0 ? enqueue : 'add',\n  title,\n  isFirstSong: index === 0,\n  isLastSong: index === songs.length - 1,\n  totalSongs: songs.length\n}));"
+      },
+      "id": "explode-songs",
+      "name": "Explode Songs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "batch-processor",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.6.8:8123/api/services/music_assistant/search?return_response",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"config_entry_id\": \"01KGKQVQ8BYXXKMXE3DCZZEZ87\",\n  \"name\": \"{{ $json.song }}\",\n  \"media_type\": [\"track\"],\n  \"limit\": 3\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "search-track",
+      "name": "HA - Search Track",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HA_CREDENTIAL_ID",
+          "name": "Home Assistant Token"
+        }
+      },
+      "notes": "Replace HA_CREDENTIAL_ID with your actual credential ID. Create HTTP Header Auth credential with: Name=Authorization, Value=Bearer YOUR_HA_TOKEN"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get batch context\nconst ctx = $items('Split In Batches')[0]?.json ?? {};\nconst song = ctx.song;\nconst songIndex = ctx.songIndex;\nconst playerId = ctx.playerId;\nconst enqueue = ctx.enqueue;\nconst isLastSong = ctx.isLastSong;\nconst title = ctx.title;\n\n// Parse search results from HA service response\nconst response = $json;\nconst serviceResponse = response.service_response ?? response;\n\nlet tracks = serviceResponse.tracks ?? [];\n\n// Get first matching track\nconst firstTrack = tracks[0] ?? null;\n\nlet trackUri = null;\nlet trackName = null;\nlet trackArtist = null;\nlet found = false;\n\nif (firstTrack) {\n  trackUri = firstTrack.uri ?? null;\n  trackName = firstTrack.name ?? null;\n  trackArtist = firstTrack.artists?.[0]?.name ?? null;\n  found = Boolean(trackUri);\n}\n\nreturn [{\n  song,\n  songIndex,\n  playerId,\n  enqueue,\n  trackUri,\n  trackName,\n  trackArtist,\n  found,\n  isLastSong,\n  title\n}];"
+      },
+      "id": "pick-track",
+      "name": "Pick Track",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "found-condition",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-found",
+      "name": "If Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.6.8:8123/api/services/music_assistant/play_media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"entity_id\": \"{{ $json.playerId }}\",\n  \"media_id\": \"{{ $json.trackUri }}\",\n  \"media_type\": \"track\",\n  \"enqueue\": \"{{ $json.enqueue }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "play-track",
+      "name": "HA - Play/Queue Track",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 240],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HA_CREDENTIAL_ID",
+          "name": "Home Assistant Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through for batch continuation\nconst ctx = $items('Split In Batches')[0]?.json ?? $json;\nreturn [{\n  ...ctx,\n  queued: true\n}];"
+      },
+      "id": "mark-queued",
+      "name": "Mark Queued",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through for not found\nconst ctx = $items('Split In Batches')[0]?.json ?? $json;\nreturn [{\n  ...ctx,\n  queued: false\n}];"
+      },
+      "id": "mark-not-found",
+      "name": "Mark Not Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "mergeByFields": {
+          "values": []
+        },
+        "options": {}
+      },
+      "id": "merge-results",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1980, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all results and summarize\nconst allResults = $items('Pick Track');\n\nconst added = [];\nconst missing = [];\n\nfor (const item of allResults) {\n  const j = item.json;\n  if (j.found) {\n    added.push({\n      song: j.song,\n      trackUri: j.trackUri,\n      trackName: j.trackName,\n      trackArtist: j.trackArtist\n    });\n  } else {\n    missing.push({ song: j.song });\n  }\n}\n\nconst firstResult = allResults[0]?.json ?? {};\n\nreturn [{\n  success: true,\n  title: firstResult.title,\n  playerId: firstResult.playerId,\n  addedCount: added.length,\n  missingCount: missing.length,\n  added,\n  missing\n}];"
+      },
+      "id": "summarize-results",
+      "name": "Summarize Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Client",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2640, 300]
+    }
+  ],
+  "connections": {
+    "Webhook (MCP Trigger)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Explode Songs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Songs": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Summarize Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HA - Search Track",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HA - Search Track": {
+      "main": [
+        [
+          {
+            "node": "Pick Track",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Track": {
+      "main": [
+        [
+          {
+            "node": "If Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Found?": {
+      "main": [
+        [
+          {
+            "node": "HA - Play/Queue Track",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HA - Play/Queue Track": {
+      "main": [
+        [
+          {
+            "node": "Mark Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Queued": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Not Found": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "Webhook (MCP Trigger)": [
+      {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "title": "MA Test Playlist",
+          "songs": [
+            "Daft Punk - One More Time",
+            "Radiohead - Karma Police",
+            "Nirvana - Smells Like Teen Spirit"
+          ],
+          "player_id": "media_player.office_2",
+          "enqueue": "play"
+        },
+        "webhookUrl": "http://192.168.5.138:5678/webhook/mcp/music-assistant/create-playlist",
+        "executionMode": "test"
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "notes": "Music Assistant Playlist Creator (via Home Assistant Services)\n\n## Setup Required\n1. Create HTTP Header Auth credential in n8n:\n   - Name: Home Assistant Token\n   - Header Name: Authorization\n   - Header Value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5NjUzNmFkMmQ1Yzg0ZjA4YjgyMWM3OGM0MDE4N2ZkZCIsImlhdCI6MTc3MzI2NTg4OCwiZXhwIjoyMDg4NjI1ODg4fQ.0ys5aUxTjk3XXSSVjADWyLzShMj2W0lGzQKmAfV3k6I\n\n2. Update the credential references in 'HA - Search Track' and 'HA - Play/Queue Track' nodes\n\n## Endpoint\nPOST http://192.168.5.138:5678/webhook/mcp/music-assistant/create-playlist\n\n## Request Body\n{\n  \"title\": \"Playlist Name\",\n  \"songs\": [\"Artist - Track\", \"Artist - Track\"],\n  \"player_id\": \"media_player.office_2\",\n  \"enqueue\": \"play\"  // 'play' (replace queue), 'add' (append), 'next' (play next)\n}\n\n## IMPORTANT: Player ID\nUse the _2 suffix players (e.g., media_player.office_2, media_player.kitchen_nest_2)\nThese are the Music Assistant versions. The base players (without _2) are Cast devices\nand won't work with music_assistant.play_media.\n\n## Response\n{\n  \"success\": true,\n  \"title\": \"Playlist Name\",\n  \"playerId\": \"media_player.office_2\",\n  \"addedCount\": 3,\n  \"missingCount\": 0,\n  \"added\": [{\"song\": \"...\", \"trackUri\": \"...\"}],\n  \"missing\": []\n}\n\n## Notes\n- This creates a queue on the specified player, not a persistent playlist\n- First track uses the specified enqueue mode, subsequent tracks use 'add'\n- config_entry_id: 01KGKQVQ8BYXXKMXE3DCZZEZ87"
+}
