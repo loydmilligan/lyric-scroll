@@ -373,7 +373,7 @@ class LyricScrollApp:
         - autocast_enabled: True
         - chromecast_ip: IP address of Chromecast
         - autocast_url: URL to cast (your addon's lyrics page)
-        - cast_app_id: Optional, defaults to 857B94F0
+        - cast_app_id: Optional, defaults to 76719249
 
         Optional:
         - display_mappings: If set, will check if display is idle before casting
@@ -424,7 +424,7 @@ class LyricScrollApp:
     async def _init_chromecast(self) -> None:
         """Initialize connection to Chromecast if configured."""
         chromecast_ip = self.settings.get("chromecast_ip", "")
-        cast_app_id = self.settings.get("cast_app_id", "857B94F0")
+        cast_app_id = self.settings.get("cast_app_id", "76719249")
 
         if not chromecast_ip:
             logger.info("No Chromecast IP configured, auto-casting disabled")

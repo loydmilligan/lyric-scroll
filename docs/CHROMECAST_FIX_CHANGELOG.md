@@ -15,7 +15,7 @@ error: unable to find a view with path http://192.168.6.8:8099
 
 Replaced the HA cast service calls with direct **PyChromecast** connection. PyChromecast:
 - Connects directly to Chromecast by IP address
-- Launches our custom receiver app (ID: `857B94F0`)
+- Launches our custom receiver app (ID: `76719249`)
 - Sends `loadUrl` messages to display any URL in the receiver's iframe
 
 ### Changes Made
@@ -34,7 +34,7 @@ Replaced the HA cast service calls with direct **PyChromecast** connection. PyCh
 3. **Simplified settings requirements**
    - Required: `autocast_enabled`, `chromecast_ip`, `autocast_url`
    - Optional: `display_mappings` (only used to check if display is idle)
-   - `cast_app_id` defaults to `857B94F0`
+   - `cast_app_id` defaults to `76719249`
 
 ### Settings Required
 
@@ -43,7 +43,7 @@ Replaced the HA cast service calls with direct **PyChromecast** connection. PyCh
 | `autocast_enabled` | `true` | Enable autocasting |
 | `chromecast_ip` | `192.168.5.187` | IP of your Chromecast |
 | `autocast_url` | `http://192.168.6.8:8099` | Your addon's lyrics URL |
-| `cast_app_id` | `857B94F0` | Cast app ID (default works) |
+| `cast_app_id` | `76719249` | Cast app ID (default works) |
 
 ### Architecture
 

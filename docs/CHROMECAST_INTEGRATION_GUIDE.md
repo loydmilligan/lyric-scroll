@@ -31,11 +31,11 @@ from chromecast_caster import ChromecastCaster, cast_to_device
 cast_to_device(
     device_ip="192.168.5.187",
     url="http://192.168.4.217:8080/lyrics?song=123",
-    app_id="857B94F0"
+    app_id="76719249"
 )
 
 # Or for persistent connection (recommended for frequent updates)
-caster = ChromecastCaster(app_id="857B94F0")
+caster = ChromecastCaster(app_id="76719249")
 caster.connect("192.168.5.187")
 caster.launch_receiver()
 
@@ -145,7 +145,7 @@ The browser-based sender is available as a backup for testing or debugging. Unli
 
 1. Open Chrome browser (required - Cast SDK only works in Chrome)
 2. Navigate to `http://localhost:8080/sender.html` (must use localhost, not IP)
-3. Enter App ID: `857B94F0`
+3. Enter App ID: `76719249`
 4. Click "Initialize Cast"
 5. Click "Start Casting" - select your Chromecast from the dialog
 6. Enter a URL and click "Cast URL"
@@ -199,7 +199,7 @@ For production use with Home Assistant automations, always use PyChromecast.
 3. Fill in:
    - **Name**: Your addon name (e.g., "HA Dashboard Cast")
    - **Receiver Application URL**: `http://<HA_IP>:<ADDON_PORT>/receiver.html`
-4. Save and note the **Application ID** (e.g., `857B94F0`)
+4. Save and note the **Application ID** (e.g., `76719249`)
 
 ### 3. Register Chromecast Devices for Testing
 
@@ -223,7 +223,7 @@ The addon settings UI should collect:
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| `cast_app_id` | Application ID from Cast Console | `857B94F0` |
+| `cast_app_id` | Application ID from Cast Console | `76719249` |
 | `chromecast_devices` | List of registered device serial numbers | `["6920103PYB5A"]` |
 | `chromecast_ip` | IP address of the Chromecast device | `192.168.5.187` |
 

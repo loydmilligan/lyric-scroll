@@ -7,7 +7,7 @@ No browser or user interaction required.
 Usage:
     from chromecast_caster import ChromecastCaster
 
-    caster = ChromecastCaster(app_id="857B94F0")
+    caster = ChromecastCaster(app_id="76719249")
     caster.connect("192.168.5.187")
     caster.cast_url("http://192.168.4.217:8080/lyrics?song=123")
     caster.disconnect()
@@ -200,7 +200,7 @@ class ChromecastCaster:
 def cast_to_device(
     device_ip: str,
     url: str,
-    app_id: str = "857B94F0",
+    app_id: str = "76719249",
     namespace: str = "urn:x-cast:com.casttest.custom"
 ) -> bool:
     """
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     success = cast_to_device(
         device_ip="192.168.5.187",
         url="http://192.168.4.217:8080/receiver.html",
-        app_id="857B94F0"
+        app_id="76719249"
     )
 
     if success:

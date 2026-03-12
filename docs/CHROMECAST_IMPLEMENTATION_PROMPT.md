@@ -14,7 +14,7 @@ A custom Chromecast receiver is already deployed and running at `http://192.168.
 
 ### What's Already Done
 
-1. **Cast Developer Account** - Registered with App ID `857B94F0`
+1. **Cast Developer Account** - Registered with App ID `76719249`
 2. **Custom Receiver** - Deployed on Docker at `http://192.168.4.158:9123/receiver.html`
 3. **Test Chromecast** - "Old Chromecast" at `192.168.5.187` registered as test device
 4. **PyChromecast Module** - `chromecast_caster.py` ready to use
@@ -32,13 +32,13 @@ A custom Chromecast receiver is already deployed and running at `http://192.168.
    - When playback stops → `clear_content()`
 5. **Add addon configuration** for:
    - `chromecast_ip` - IP address of target Chromecast
-   - `cast_app_id` - Default to `857B94F0`
+   - `cast_app_id` - Default to `76719249`
 
 ### Key Configuration Values
 
 | Setting | Value |
 |---------|-------|
-| App ID | `857B94F0` |
+| App ID | `76719249` |
 | Namespace | `urn:x-cast:com.casttest.custom` |
 | Receiver URL | `http://192.168.4.158:9123/receiver.html` |
 | Test Chromecast IP | `192.168.5.187` |
