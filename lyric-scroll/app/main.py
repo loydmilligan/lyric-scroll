@@ -352,6 +352,10 @@ class LyricScrollApp:
 
     async def _autocast_to_display(self, player_entity_id: str) -> None:
         """Cast Lyric Scroll to mapped display if idle."""
+        logger.info(f"Autocast check for {player_entity_id}")
+        logger.info(f"Autocast enabled: {self.settings.get('autocast_enabled', False)}")
+        logger.info(f"Display mappings: {self.settings.get('display_mappings', {})}")
+
         # Check if autocast is enabled
         if not self.settings.get("autocast_enabled", False):
             return
