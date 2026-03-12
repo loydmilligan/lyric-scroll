@@ -3,47 +3,51 @@
 import logging
 from typing import Optional
 import pychromecast
+from pychromecast.controllers.dashcast import DashCastController
 
 logger = logging.getLogger(__name__)
 
-# Cache discovered chromecasts
+# Cache of connected chromecasts by IP
 _chromecasts: dict = {}
-_browser = None
 
 
-def discover_chromecasts(timeout: float = 5.0) -> dict:
-    """Discover Chromecast devices on the network.
-
-    Returns dict mapping friendly_name -> Chromecast object
-    """
-    global _chromecasts, _browser
+def get_chromecast_by_ip(ip_address: str) -> Optional[pychromecast.Chromecast]:
+    """Get or create a Chromecast connection by IP address."""
+    if ip_address in _chromecasts:
+        cc = _chromecasts[ip_address]
+        # Check if still connected
+        if cc.socket_client and cc.socket_client.is_connected:
+            return cc
 
     try:
-        chromecasts, browser = pychromecast.get_chromecasts(timeout=timeout)
-        _browser = browser
-        _chromecasts = {cc.cast_info.friendly_name: cc for cc in chromecasts}
-        logger.info(f"Discovered {len(_chromecasts)} Chromecast(s): {list(_chromecasts.keys())}")
-        return _chromecasts
+        logger.info(f"Connecting to Chromecast at {ip_address}...")
+        # Connect directly by IP (no discovery needed)
+        chromecasts, browser = pychromecast.get_listed_chromecasts(
+            friendly_names=None,
+            uuids=None,
+            hosts=[ip_address]
+        )
+
+        if chromecasts:
+            cc = chromecasts[0]
+            cc.wait()
+            _chromecasts[ip_address] = cc
+            logger.info(f"Connected to Chromecast: {cc.cast_info.friendly_name}")
+            return cc
+        else:
+            logger.error(f"No Chromecast found at {ip_address}")
+            return None
+
     except Exception as e:
-        logger.error(f"Chromecast discovery error: {e}")
-        return {}
+        logger.error(f"Error connecting to Chromecast at {ip_address}: {e}")
+        return None
 
 
-def get_chromecast(friendly_name: str) -> Optional[pychromecast.Chromecast]:
-    """Get a Chromecast by friendly name."""
-    if friendly_name in _chromecasts:
-        return _chromecasts[friendly_name]
-
-    # Try rediscovering if not found
-    discover_chromecasts()
-    return _chromecasts.get(friendly_name)
-
-
-def cast_url(friendly_name: str, url: str, force_launch: bool = True) -> bool:
+def cast_url_to_ip(ip_address: str, url: str, force_launch: bool = True) -> bool:
     """Cast a URL to a Chromecast using DashCast.
 
     Args:
-        friendly_name: The Chromecast's friendly name
+        ip_address: The Chromecast's IP address
         url: The URL to cast
         force_launch: Whether to force launch even if something is playing
 
@@ -51,24 +55,17 @@ def cast_url(friendly_name: str, url: str, force_launch: bool = True) -> bool:
         True if successful, False otherwise
     """
     try:
-        cc = get_chromecast(friendly_name)
+        cc = get_chromecast_by_ip(ip_address)
         if not cc:
-            logger.error(f"Chromecast '{friendly_name}' not found")
             return False
 
-        # Wait for device to be ready
-        cc.wait()
-
         # Use DashCast to display URL
-        # DashCast app ID: B95BBCFB
-        from pychromecast.controllers.dashcast import DashCastController
-
         dashcast = DashCastController()
         cc.register_handler(dashcast)
 
         # Load the URL
+        logger.info(f"Casting {url} to {cc.cast_info.friendly_name} via DashCast")
         dashcast.load_url(url, force=force_launch)
-        logger.info(f"Cast URL {url} to {friendly_name} via DashCast")
         return True
 
     except Exception as e:
@@ -76,9 +73,11 @@ def cast_url(friendly_name: str, url: str, force_launch: bool = True) -> bool:
         return False
 
 
-def stop_chromecasts():
-    """Stop the discovery browser."""
-    global _browser
-    if _browser:
-        _browser.stop_discovery()
-        _browser = None
+def disconnect_all():
+    """Disconnect all cached Chromecast connections."""
+    for ip, cc in _chromecasts.items():
+        try:
+            cc.disconnect()
+        except:
+            pass
+    _chromecasts.clear()

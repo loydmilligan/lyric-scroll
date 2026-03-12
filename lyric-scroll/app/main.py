@@ -18,6 +18,7 @@ from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
 from missing_lyrics import MissingLyricsTracker
 from ma_client import MAClient
+from cast_client import cast_url_to_ip
 
 # Supervisor API for image proxy
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -325,7 +326,8 @@ class LyricScrollApp:
             "default_player": None,     # Default MA player for queue operations
             "default_display": None,    # Default display for casting
             "autocast_enabled": False,
-            "autocast_url": "http://192.168.6.8:8099"
+            "autocast_url": "http://192.168.6.8:8099",
+            "display_ips": {}           # Maps display entity_id to IP address
         }
 
         try:
@@ -366,6 +368,12 @@ class LyricScrollApp:
             logger.debug(f"No display mapped for {player_entity_id}")
             return
 
+        # Get display IP address from settings
+        display_ip = self.settings.get("display_ips", {}).get(display_id)
+        if not display_ip:
+            logger.warning(f"No IP address configured for {display_id}. Add it in settings display_ips.")
+            return
+
         # Get display state from HA
         display_state = await self.ha_client.get_entity_state(display_id)
         if not display_state:
@@ -377,28 +385,15 @@ class LyricScrollApp:
             logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
             return
 
-        # Cast the URL using HA REST API (same approach as family_yt_queue)
+        # Cast the URL using pychromecast directly
         cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
-        logger.info(f"Attempting to cast {cast_url} to {display_id}")
+        logger.info(f"Attempting to cast {cast_url} to {display_id} ({display_ip})")
 
-        # Use media_content_type="cast" with JSON payload for DashCast
-        result = await self.ma_client._call_service(
-            "media_player",
-            "play_media",
-            {
-                "entity_id": display_id,
-                "media_content_type": "cast",
-                "media_content_id": json.dumps({
-                    "app_name": "dashcast",
-                    "url": cast_url
-                })
-            }
-        )
-
-        if "error" not in result:
+        success = cast_url_to_ip(display_ip, cast_url)
+        if success:
             logger.info(f"Auto-cast successful to {display_id}")
         else:
-            logger.warning(f"Auto-cast failed for {display_id}: {result.get('error', 'unknown error')}")
+            logger.warning(f"Auto-cast failed for {display_id}")
 
     # ========== Settings API ==========
 
@@ -412,7 +407,7 @@ class LyricScrollApp:
             data = await request.json()
 
             # Update settings (only known keys)
-            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url"]:
+            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips"]:
                 if key in data:
                     self.settings[key] = data[key]
 
