@@ -89,8 +89,10 @@ class LyricScrollApp:
                     "image_url": state.track.album_art_url
                 })
                 await self._fetch_and_broadcast_lyrics(state.track)
-                # Autocast to Chromecast using PyChromecast (direct connection)
-                await self._autocast_to_display(state.entity_id)
+                # Autocast to Chromecast using PyChromecast (only if cast_method is 'direct')
+                cast_method = self.settings.get("cast_method", "automation")
+                if cast_method == "direct":
+                    await self._autocast_to_display(state.entity_id)
             else:
                 # Same track, just update position
                 self.current_position_ms = state.position_ms
@@ -350,7 +352,8 @@ class LyricScrollApp:
             "autocast_url": "http://192.168.6.8:8099",
             "display_ips": {},          # Maps display entity_id to IP address
             "cast_app_id": "",          # Custom Cast Receiver App ID
-            "chromecast_ip": ""         # IP address of target Chromecast for auto-casting
+            "chromecast_ip": "",        # IP address of target Chromecast for auto-casting
+            "cast_method": "automation" # 'automation' or 'direct'
         }
 
         try:
@@ -446,6 +449,12 @@ class LyricScrollApp:
 
     async def _init_chromecast(self) -> None:
         """Initialize connection to Chromecast if configured."""
+        # Only initialize if cast_method is 'direct'
+        cast_method = self.settings.get("cast_method", "automation")
+        if cast_method != "direct":
+            logger.info(f"Cast method is '{cast_method}', skipping Chromecast initialization")
+            return
+
         chromecast_ip = self.settings.get("chromecast_ip", "")
         cast_app_id = self.settings.get("cast_app_id", "76719249")
 
@@ -554,7 +563,7 @@ class LyricScrollApp:
             data = await request.json()
 
             # Update settings (only known keys)
-            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id", "chromecast_ip"]:
+            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id", "chromecast_ip", "cast_method"]:
                 if key in data:
                     self.settings[key] = data[key]
 

@@ -36,7 +36,8 @@ class LyricScroll {
             autocastUrl: 'http://192.168.6.8:8099', // default cast URL
             displayIps: {},       // display entity_id -> IP address mapping
             castAppId: '',
-            chromecastIp: ''
+            chromecastIp: '',
+            castMethod: 'automation' // 'automation' or 'direct'
         };
 
         // Cast state
@@ -73,6 +74,7 @@ class LyricScroll {
         this.castBtn = document.getElementById('cast-btn');
         this.castAppIdInput = document.getElementById('cast-app-id');
         this.chromecastIpInput = document.getElementById('chromecast-ip');
+        this.castMethodSelect = document.getElementById('cast-method');
 
         // MA data
         this.maPlayers = [];
@@ -723,6 +725,9 @@ class LyricScroll {
                 if (serverSettings.chromecast_ip) {
                     this.settings.chromecastIp = serverSettings.chromecast_ip;
                 }
+                if (serverSettings.cast_method) {
+                    this.settings.castMethod = serverSettings.cast_method;
+                }
                 this.updateMAUI();
                 this.initCast();
             }
@@ -810,6 +815,11 @@ class LyricScroll {
         // Update Chromecast IP
         if (this.chromecastIpInput) {
             this.chromecastIpInput.value = this.settings.chromecastIp || '';
+        }
+
+        // Update Cast Method
+        if (this.castMethodSelect) {
+            this.castMethodSelect.value = this.settings.castMethod || 'automation';
         }
     }
 
@@ -906,7 +916,8 @@ class LyricScroll {
                     autocast_url: this.settings.autocastUrl,
                     display_ips: this.settings.displayIps,
                     cast_app_id: this.settings.castAppId,
-                    chromecast_ip: this.settings.chromecastIp
+                    chromecast_ip: this.settings.chromecastIp,
+                    cast_method: this.settings.castMethod
                 })
             });
 
@@ -1069,6 +1080,15 @@ class LyricScroll {
         if (this.chromecastIpInput) {
             this.chromecastIpInput.addEventListener('change', (e) => {
                 this.settings.chromecastIp = e.target.value.trim();
+                this.saveSettings();
+                this.saveMASettings();
+            });
+        }
+
+        // Cast Method select
+        if (this.castMethodSelect) {
+            this.castMethodSelect.addEventListener('change', (e) => {
+                this.settings.castMethod = e.target.value;
                 this.saveSettings();
                 this.saveMASettings();
             });
