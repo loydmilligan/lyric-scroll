@@ -466,7 +466,7 @@ class LyricScrollApp:
             # Send title to receiver
             await loop.run_in_executor(
                 None,
-                lambda: self.caster.send_message({"title": "Lyric Scroll"})
+                lambda: self.caster.send_data({"title": "Lyric Scroll"})
             )
             logger.info(f"Connected to Chromecast at {chromecast_ip}")
         except Exception as e:
@@ -536,7 +536,7 @@ class LyricScrollApp:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
-                lambda: self.caster.send_message({"recentTracks": self.recent_tracks})
+                lambda: self.caster.send_data({"recentTracks": self.recent_tracks})
             )
             logger.debug(f"Sent {len(self.recent_tracks)} recent tracks to receiver")
         except Exception as e:
