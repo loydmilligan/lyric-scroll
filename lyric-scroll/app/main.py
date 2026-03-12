@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 from dataclasses import asdict
+from datetime import datetime
 from typing import Optional
 
 import aiohttp
@@ -49,6 +50,10 @@ class LyricScrollApp:
         self.current_position_ms: int = 0
         self.active_entity: Optional[str] = None  # Which media_player we're tracking
 
+        # Recently played tracks
+        self.recent_tracks = []  # Store recently played tracks
+        self.max_recent_tracks = 10
+
         # Settings stored in /data/settings.json
         self.settings_path = "/data/settings.json"
         self.settings = self._load_settings()
@@ -76,6 +81,13 @@ class LyricScrollApp:
                 self.current_track = state.track
                 self.current_state = state.state
                 self.current_position_ms = state.position_ms
+                # Add to recent tracks
+                self._add_recent_track({
+                    "title": state.track.title,
+                    "artist": state.track.artist,
+                    "album": state.track.album,
+                    "image_url": state.track.album_art_url
+                })
                 await self._fetch_and_broadcast_lyrics(state.track)
                 # Autocast to Chromecast using PyChromecast (direct connection)
                 await self._autocast_to_display(state.entity_id)
@@ -451,6 +463,11 @@ class LyricScrollApp:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self.caster.connect, chromecast_ip)
             await loop.run_in_executor(None, self.caster.launch_receiver)
+            # Send title to receiver
+            await loop.run_in_executor(
+                None,
+                lambda: self.caster.send_message({"title": "Lyric Scroll"})
+            )
             logger.info(f"Connected to Chromecast at {chromecast_ip}")
         except Exception as e:
             logger.error(f"Failed to connect to Chromecast: {e}")
@@ -483,8 +500,47 @@ class LyricScrollApp:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self.caster.clear_content)
             logger.info("Cleared Chromecast content")
+            # Send recent tracks so the fallback page shows them
+            await self._send_recent_tracks()
         except Exception as e:
             logger.error(f"Failed to clear Chromecast: {e}")
+
+    def _add_recent_track(self, track_info: dict) -> None:
+        """Add a track to the recently played list."""
+        track_data = {
+            "title": track_info.get("title", "Unknown"),
+            "artist": track_info.get("artist", "Unknown Artist"),
+            "album": track_info.get("album", ""),
+            "albumArt": track_info.get("image_url", ""),
+            "playedAt": datetime.utcnow().isoformat() + "Z"
+        }
+
+        # Remove if already in list (avoid duplicates)
+        self.recent_tracks = [
+            t for t in self.recent_tracks
+            if not (t['title'] == track_data['title'] and t['artist'] == track_data['artist'])
+        ]
+
+        # Add to front
+        self.recent_tracks.insert(0, track_data)
+
+        # Trim to max
+        self.recent_tracks = self.recent_tracks[:self.max_recent_tracks]
+
+    async def _send_recent_tracks(self) -> None:
+        """Send recently played tracks to the Chromecast receiver."""
+        if not self.caster:
+            return
+
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.caster.send_message({"recentTracks": self.recent_tracks})
+            )
+            logger.debug(f"Sent {len(self.recent_tracks)} recent tracks to receiver")
+        except Exception as e:
+            logger.error(f"Failed to send recent tracks: {e}")
 
     # ========== Settings API ==========
 
