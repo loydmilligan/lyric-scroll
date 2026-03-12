@@ -30,7 +30,8 @@ class LyricScroll {
             maDefaultPlayer: '',  // default MA player
             maDisplayMappings: {}, // player -> display mappings
             autocastEnabled: false, // enable auto-casting
-            autocastUrl: 'http://192.168.6.8:8099' // default cast URL
+            autocastUrl: 'http://192.168.6.8:8099', // default cast URL
+            displayIps: {}        // display entity_id -> IP address mapping
         };
 
         // DOM elements
@@ -60,6 +61,7 @@ class LyricScroll {
         this.maMappingList = document.getElementById('ma-mapping-list');
         this.autocastEnabledCheckbox = document.getElementById('autocast-enabled');
         this.autocastUrlInput = document.getElementById('autocast-url');
+        this.displayIpsInput = document.getElementById('display-ips');
 
         // MA data
         this.maPlayers = [];
@@ -566,6 +568,9 @@ class LyricScroll {
                 if (serverSettings.autocast_url) {
                     this.settings.autocastUrl = serverSettings.autocast_url;
                 }
+                if (serverSettings.display_ips) {
+                    this.settings.displayIps = serverSettings.display_ips;
+                }
                 this.updateMAUI();
             }
         } catch (e) {
@@ -639,6 +644,9 @@ class LyricScroll {
         }
         if (this.autocastUrlInput) {
             this.autocastUrlInput.value = this.settings.autocastUrl;
+        }
+        if (this.displayIpsInput) {
+            this.displayIpsInput.value = JSON.stringify(this.settings.displayIps);
         }
     }
 
@@ -732,7 +740,8 @@ class LyricScroll {
                     default_player: this.settings.maDefaultPlayer,
                     display_mappings: this.settings.maDisplayMappings,
                     autocast_enabled: this.settings.autocastEnabled,
-                    autocast_url: this.settings.autocastUrl
+                    autocast_url: this.settings.autocastUrl,
+                    display_ips: this.settings.displayIps
                 })
             });
 
@@ -851,6 +860,18 @@ class LyricScroll {
             this.autocastUrlInput.addEventListener('change', (e) => {
                 this.settings.autocastUrl = e.target.value;
                 this.saveMASettings();
+            });
+        }
+
+        // Display IPs
+        if (this.displayIpsInput) {
+            this.displayIpsInput.addEventListener('change', (e) => {
+                try {
+                    this.settings.displayIps = JSON.parse(e.target.value);
+                    this.saveMASettings();
+                } catch (error) {
+                    console.error('Invalid JSON for display IPs:', error);
+                }
             });
         }
     }

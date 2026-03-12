@@ -56,7 +56,7 @@
                 <span id="track-artist">-</span>
             </div>
             <div id="info-bar-right">
-                <span id="version">v0.4.12</span>
+                <span id="version">v0.4.13</span>
                 <button id="settings-btn" title="Settings">⚙️</button>
             </div>
         </div>
@@ -149,6 +149,11 @@
                         <span class="setting-title">Cast URL</span>
                         <input type="text" id="autocast-url" placeholder="http://192.168.6.8:8099">
                     </label>
+                    <label class="setting-row">
+                        <span>Display IPs</span>
+                        <input type="text" id="display-ips" placeholder='{"entity_id": "192.168.x.x"}'>
+                    </label>
+                    <p class="setting-help">JSON mapping display entity_id to IP address</p>
                 </div>
             </div>
         </div>
