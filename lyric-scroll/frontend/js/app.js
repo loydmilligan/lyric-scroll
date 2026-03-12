@@ -622,6 +622,9 @@ class LyricScroll {
             });
         }
 
+        // Rebuild default player dropdown with current selections
+        this.updateDefaultPlayerOptions();
+
         // Update default player
         if (this.maDefaultPlayerSelect) {
             this.maDefaultPlayerSelect.value = this.settings.maDefaultPlayer;
