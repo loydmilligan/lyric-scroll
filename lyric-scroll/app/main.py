@@ -391,15 +391,26 @@ class LyricScrollApp:
             logger.debug("No chromecast_ip configured, skipping autocast")
             return
 
-        # Optional: Check display state if display_mappings is configured
-        display_id = self.settings.get("display_mappings", {}).get(player_entity_id)
-        if display_id:
-            display_state = await self.ha_client.get_entity_state(display_id)
-            if display_state:
-                current_state = display_state.get("state", "")
-                if current_state not in ("idle", "off", "unavailable", "unknown"):
-                    logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
-                    return
+        # Check if we should skip casting (display busy with other content)
+        # But always allow if our receiver app is already running
+        cast_app_id = self.settings.get("cast_app_id", "76719249")
+
+        # If caster is connected, check what app is running
+        if self.caster and self.caster.cast:
+            current_app = self.caster.cast.app_id
+            if current_app == cast_app_id:
+                # Our app is running, always allow casting (even if "playing" the clock)
+                logger.info(f"Our receiver app is running, allowing cast update")
+            elif current_app:
+                # Different app is running, check display state
+                display_id = self.settings.get("display_mappings", {}).get(player_entity_id)
+                if display_id:
+                    display_state = await self.ha_client.get_entity_state(display_id)
+                    if display_state:
+                        current_state = display_state.get("state", "")
+                        if current_state not in ("idle", "off", "unavailable", "unknown"):
+                            logger.info(f"Display {display_id} is busy with {current_app} ({current_state}), skipping autocast")
+                            return
 
         # Cast the URL using PyChromecast (direct connection, not HA cast service)
         cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
