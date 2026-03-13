@@ -37,7 +37,10 @@ class LyricScrollApp:
 
     def __init__(self):
         self.clients: set[web.WebSocketResponse] = set()
-        self.cache = LyricsCache()
+        # Load addon options for LRC export setting
+        addon_options = self._load_addon_options()
+        export_enabled = addon_options.get("lrc_export_enabled", False)
+        self.cache = LyricsCache(export_enabled=export_enabled)
         self.fetcher = LyricsFetcher(self.cache)
         self.ha_client: Optional[HAClient] = None
         self.ma_client = MAClient()
@@ -340,6 +343,17 @@ class LyricScrollApp:
         except Exception as e:
             logger.error(f"Image proxy error: {e}")
             return web.Response(status=500, text=str(e))
+
+    def _load_addon_options(self) -> dict:
+        """Load addon options from HA config."""
+        options_path = "/data/options.json"
+        if os.path.exists(options_path):
+            try:
+                with open(options_path) as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Error loading addon options: {e}")
+        return {}
 
     def _load_settings(self) -> dict:
         """Load settings from file."""
