@@ -6,6 +6,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Lyric Scroll is a Home Assistant addon that displays synchronized, scrolling lyrics for music playing via Music Assistant. It supports casting to Google Cast devices (Chromecast, Nest Hub, etc.).
 
+## Terminology & Glossary
+
+| Term | Meaning |
+|------|---------|
+| **FB** / **Fallback Screen** | The screen shown when no song is playing (clock + recently played on cast-receiver) |
+| **LD** | Lyric Display - the Chromecast/display device we cast lyrics to |
+| **laptop_browser** | User's laptop browser, typically at `https://lyric-scroll.mattmariani.com` |
+| **HA** | Home Assistant dashboard |
+| **addon settings** | The in-page slide-out settings modal within the web UI |
+| **config screen** | The addon Configuration tab in HA (between Info and Logs tabs) |
+| **addon** / **app** | Synonymous - HA renamed "addons" to "apps" but we use "addon" |
+
+**Status Format**: "the addon shows `<content>` on `<device>`"
+- Example: "the addon shows FB on LD" = fallback screen on lyric display
+- Example: "the addon shows lyrics on laptop_browser" = lyrics in browser
+
+## Casting Architecture
+
+The casting flow uses a **shell/container app** running on piUSBcam:
+
+1. **piUSBcam** (192.168.4.158:9123) hosts `cast-receiver` (separate repo: `loydmilligan/cast-receiver`)
+2. **Cast App ID**: `76719249` (registered to piUSBcam receiver URL)
+3. **Namespace**: `urn:x-cast:com.casttest.custom`
+4. **Flow**:
+   - Addon detects song → sends `loadUrl` via chromecast_caster.py
+   - piUSBcam receiver loads lyrics URL in iframe
+   - Song stops → sends `clearUrl` → receiver shows FB (clock)
+
+**URLs**:
+- Receiver: `http://192.168.4.158:9123/receiver.html` (HTTP OK for receiver)
+- Lyrics: `https://lyric-scroll.mattmariani.com` (HTTPS required for iframe content)
+
 ## Architecture
 
 - **Backend**: Python 3 with aiohttp (async web framework)
@@ -69,3 +101,31 @@ No build step required. Python and frontend files are served directly.
 - `GET /api/ma/players` - List MA players
 - `GET /api/ma/displays` - List Cast displays
 - `POST /api/ma/queue` - Queue tracks
+
+## Log Access (for Claude)
+
+Logs are exported via samba share to local laptop folder for Claude to access:
+- **Source**: HA addon logs
+- **Destination**: `C:\Users\mmariani\Music\lrc\` (same sync as LRC files)
+- **Path in WSL**: `/mnt/c/Users/mmariani/Music/lrc/`
+
+TODO: Set up log export similar to LRC export.
+
+## Roadmap
+
+### Sync Improvements (Priority)
+- [ ] **Autosync toggle** - Bring back from v0.6.2 with fixes (caused issues before)
+- [ ] **Jump buttons** - Add +/- buttons for precise timeline adjustments (small: ±1s, large: ±5s)
+- [ ] **Audio timeline indicator** - Visual indicator showing audio's current position alongside lyric scrubber
+- [ ] **Sync hint markers** - Visual cues in LRC files for sync points
+
+### Settings Cleanup
+- [ ] Simplify settings - remove redundant options
+- [ ] Move casting config to addon config tab
+- [ ] Single player selection (multi-player mapping later)
+
+### Testing Apparatus
+- [ ] Export addon logs to samba share for Claude access
+- [ ] Script to trigger addon restart via HA API
+- [ ] Script to start playback on test player
+- [ ] Screenshot capability from lyric-scroll page
