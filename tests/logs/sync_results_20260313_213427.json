@@ -1,0 +1,40 @@
+{
+  "test_start": "2026-03-13T21:34:22.398634",
+  "test_end": "2026-03-13T21:34:26.247928",
+  "track_name": "Unknown",
+  "max_drift_ms": 0,
+  "avg_drift_ms": 0.0,
+  "issues": [],
+  "snapshots": [
+    {
+      "timestamp": "2026-03-13T21:34:22.398634",
+      "timestamp_ms": 1773462862398,
+      "addon_position_ms": 248000,
+      "addon_state": "idle",
+      "addon_track": null,
+      "ha_position_sec": 249,
+      "ha_state": "paused",
+      "ha_track": "DUCKWORTH.",
+      "highlighted_lyric": null,
+      "expected_lyric_time_ms": null,
+      "lyric_line_number": null,
+      "screenshot_path": "/home/mmariani/Projects/lyric-scroll/tests/screenshots/sync_20260313_213422_689.png",
+      "drift_ms": null
+    },
+    {
+      "timestamp": "2026-03-13T21:34:26.247928",
+      "timestamp_ms": 1773462866247,
+      "addon_position_ms": 248000,
+      "addon_state": "idle",
+      "addon_track": null,
+      "ha_position_sec": 249,
+      "ha_state": "paused",
+      "ha_track": "DUCKWORTH.",
+      "highlighted_lyric": null,
+      "expected_lyric_time_ms": null,
+      "lyric_line_number": null,
+      "screenshot_path": "/home/mmariani/Projects/lyric-scroll/tests/screenshots/sync_20260313_213426_468.png",
+      "drift_ms": null
+    }
+  ]
+}

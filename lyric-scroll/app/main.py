@@ -81,6 +81,12 @@ class LyricScrollApp:
 
     async def on_state_change(self, state: PlaybackState) -> None:
         """Handle media player state changes from HA."""
+        # Filter: Only monitor media_player.office_2 (Music Assistant player)
+        # Ignore media_player.office to prevent duplicate events resetting position
+        if state.entity_id == "media_player.office":
+            logger.debug(f"Ignoring event from {state.entity_id} (monitoring office_2 only)")
+            return
+
         # Only process if this entity is playing, or if it's our active entity
         is_playing = state.state == "playing"
         is_active_entity = state.entity_id == self.active_entity

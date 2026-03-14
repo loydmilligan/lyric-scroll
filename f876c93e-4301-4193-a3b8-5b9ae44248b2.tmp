@@ -1,0 +1,99 @@
+s6-rc: info: service s6rc-oneshot-runner successfully started
+s6-rc: info: service base-addon-banner: starting
+
+[34m-----------------------------------------------------------[0m
+[34m App: Lyric Scroll[0m
+[34m Display synchronized karaoke-style lyrics for currently playing music[0m
+[34m-----------------------------------------------------------[0m
+[34m App version: 0.6.5[0m
+[32m You are running the latest version of this app.[0m
+[34m System: Home Assistant OS 17.1  (amd64 / qemux86-64)[0m
+[34m Home Assistant Core: 2026.3.1[0m
+[34m Home Assistant Supervisor: 2026.03.0[0m
+[34m-----------------------------------------------------------[0m
+[34m Please, share the above information when looking for help[0m
+[34m or support in, e.g., GitHub, forums or the Discord chat.[0m
+[34m-----------------------------------------------------------[0m
+s6-rc: info: service base-addon-banner successfully started
+s6-rc: info: service fix-attrs: starting
+s6-rc: info: service base-addon-log-level: starting
+s6-rc: info: service fix-attrs successfully started
+s6-rc: info: service base-addon-log-level successfully started
+s6-rc: info: service legacy-cont-init: starting
+s6-rc: info: service legacy-cont-init successfully started
+s6-rc: info: service legacy-services: starting
+s6-rc: info: service legacy-services successfully started
+[16:20:50] INFO: [32mStarting Lyric Scroll...[0m
+2026-03-12 16:20:52,631 - __main__ - INFO - Lyric Scroll starting...
+2026-03-12 16:20:52,632 - __main__ - INFO - Configured media players: []
+2026-03-12 16:20:52,632 - __main__ - INFO - Cast method is 'automation', skipping Chromecast initialization
+2026-03-12 16:20:52,632 - __main__ - INFO - Lyric Scroll Player disabled
+2026-03-12 16:20:52,636 - __main__ - INFO - Web server started on port 8099
+2026-03-12 16:20:52,654 - ha_client - INFO - Connected to Home Assistant
+2026-03-12 16:20:52,661 - ha_client - INFO - Subscribed to state changes
+2026-03-12 16:20:54,036 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 1
+2026-03-12 16:20:55,762 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 2
+2026-03-12 16:20:56,101 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:21:06,289 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:21:06 -0800] "GET / HTTP/1.1" 200 239 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:21:06,314 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:21:06,314 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:20:56 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:21:06,485 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:21:07,757 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:21:07 -0800] "GET /api/settings HTTP/1.1" 200 590 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:21:07,812 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:21:07 -0800] "GET /api/ma/displays HTTP/1.1" 200 3233 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:21:07,828 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:21:07 -0800] "GET /api/ma/players HTTP/1.1" 200 3112 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:22:25,513 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:22:25 -0800] "POST /api/settings HTTP/1.1" 200 644 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:22:25,976 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:22:25 -0800] "GET / HTTP/1.1" 200 239 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+2026-03-12 16:22:26,023 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:22:26 -0800] "GET /favicon.ico HTTP/1.1" 404 174 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+2026-03-12 16:22:50,338 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:22:50 -0800] "POST /api/settings HTTP/1.1" 200 675 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:22:52,563 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:22:52 -0800] "POST /api/settings HTTP/1.1" 200 683 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:22:59,058 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:22:59,059 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:20:54 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:23:00,788 - __main__ - INFO - Client disconnected. Total clients: 1
+2026-03-12 16:23:00,788 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:20:55 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:23:02,186 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 2
+2026-03-12 16:23:04,747 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:23:11,499 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:23:11,499 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:21:06 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:23:14,589 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:23:17,557 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:23:17 -0800] "POST /api/settings HTTP/1.1" 200 675 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:23:19,182 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:23:19 -0800] "POST /api/settings HTTP/1.1" 200 667 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:23:22,922 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:23:22 -0800] "POST /api/settings HTTP/1.1" 200 721 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:23:23,812 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:23:23 -0800] "POST /api/settings HTTP/1.1" 200 720 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:24:28,310 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:24:28 -0800] "POST /api/settings HTTP/1.1" 200 766 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:24:54,027 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:24:53 -0800] "POST /api/settings HTTP/1.1" 200 779 "https://lyric-scroll.mattmariani.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:25:07,202 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:25:07,204 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:23:02 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:25:09,767 - __main__ - INFO - Client disconnected. Total clients: 1
+2026-03-12 16:25:09,767 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:23:04 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:25:10,395 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 2
+2026-03-12 16:25:13,832 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:25:19,613 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:25:19,614 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:23:14 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:25:22,802 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:27:15,414 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:27:15,414 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:25:10 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:27:18,552 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:27:18,857 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:27:18,858 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:25:13 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:27:22,785 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:27:27,814 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:27:27,816 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:25:22 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:27:31,738 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:29:23,562 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:29:23,562 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:27:18 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:29:26,706 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:29:27,816 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:29:27,817 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:27:22 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:29:31,782 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:29:36,759 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:29:36,764 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:27:31 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:29:40,730 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:31:31,727 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:31:31,728 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:29:26 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:31:34,894 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:31:36,802 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:31:36,803 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:29:31 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:31:40,829 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3
+2026-03-12 16:31:45,745 - __main__ - INFO - Client disconnected. Total clients: 2
+2026-03-12 16:31:45,746 - aiohttp.access - INFO - 192.168.5.16 [12/Mar/2026:15:29:40 -0800] "GET /ws HTTP/1.1" 101 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+2026-03-12 16:31:49,804 - __main__ - INFO - WebSocket client connected from 192.168.5.16. Total clients: 3

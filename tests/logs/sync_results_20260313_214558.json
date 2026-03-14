@@ -1,0 +1,55 @@
+{
+  "test_start": "2026-03-13T21:45:46.275816",
+  "test_end": "2026-03-13T21:45:58.099215",
+  "track_name": "Another One Bites The Dust (Remastered 2011)",
+  "max_drift_ms": 0,
+  "avg_drift_ms": 0.0,
+  "issues": [],
+  "snapshots": [
+    {
+      "timestamp": "2026-03-13T21:45:46.275816",
+      "timestamp_ms": 1773463546275,
+      "addon_position_ms": 1000,
+      "addon_state": "playing",
+      "addon_track": "Another One Bites The Dust (Remastered 2011)",
+      "ha_position_sec": 0,
+      "ha_state": "playing",
+      "ha_track": "Another One Bites The Dust",
+      "highlighted_lyric": null,
+      "expected_lyric_time_ms": null,
+      "lyric_line_number": null,
+      "screenshot_path": "/home/mmariani/Projects/lyric-scroll/tests/screenshots/sync_20260313_214546_549.png",
+      "drift_ms": null
+    },
+    {
+      "timestamp": "2026-03-13T21:45:52.380739",
+      "timestamp_ms": 1773463552380,
+      "addon_position_ms": 1000,
+      "addon_state": "playing",
+      "addon_track": "Another One Bites The Dust (Remastered 2011)",
+      "ha_position_sec": 0,
+      "ha_state": "playing",
+      "ha_track": "Another One Bites The Dust",
+      "highlighted_lyric": null,
+      "expected_lyric_time_ms": null,
+      "lyric_line_number": null,
+      "screenshot_path": "/home/mmariani/Projects/lyric-scroll/tests/screenshots/sync_20260313_214552_558.png",
+      "drift_ms": null
+    },
+    {
+      "timestamp": "2026-03-13T21:45:58.099215",
+      "timestamp_ms": 1773463558099,
+      "addon_position_ms": 1000,
+      "addon_state": "playing",
+      "addon_track": "Another One Bites The Dust (Remastered 2011)",
+      "ha_position_sec": 0,
+      "ha_state": "playing",
+      "ha_track": "Another One Bites The Dust",
+      "highlighted_lyric": null,
+      "expected_lyric_time_ms": null,
+      "lyric_line_number": null,
+      "screenshot_path": "/home/mmariani/Projects/lyric-scroll/tests/screenshots/sync_20260313_214558_290.png",
+      "drift_ms": null
+    }
+  ]
+}

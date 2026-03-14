@@ -104,12 +104,15 @@ No build step required. Python and frontend files are served directly.
 
 ## Log Access (for Claude)
 
-Logs are exported via samba share to local laptop folder for Claude to access:
-- **Source**: HA addon logs
-- **Destination**: `C:\Users\mmariani\Music\lrc\` (same sync as LRC files)
+Logs and LRC files are synced via PowerShell watcher to local folder:
+- **Source**: NAS share `\\192.168.6.31\shared\lrc` (addon exports here)
+- **Destination**: `C:\Users\mmariani\Music\lrc\`
 - **Path in WSL**: `/mnt/c/Users/mmariani/Music/lrc/`
+- **Logs**: `/mnt/c/Users/mmariani/Music/lrc/logs/lyric_scroll.log`
 
-TODO: Set up log export similar to LRC export.
+**Sync Script**: `C:\Users\mmariani\scripts\sync-lrc.ps1` (polls every 2s)
+- Run in PowerShell: `.\sync-lrc.ps1`
+- Keeps running and syncs new LRC files and logs automatically
 
 ## Roadmap
 
@@ -125,7 +128,35 @@ TODO: Set up log export similar to LRC export.
 - [ ] Single player selection (multi-player mapping later)
 
 ### Testing Apparatus
-- [ ] Export addon logs to samba share for Claude access
-- [ ] Script to trigger addon restart via HA API
-- [ ] Script to start playback on test player
-- [ ] Screenshot capability from lyric-scroll page
+- [x] Export addon logs to samba share for Claude access
+- [x] Script to trigger addon restart via HA API
+- [x] Script to start playback on test player
+- [x] Sync verification test (screenshots + position comparison)
+
+**Test Scripts** (in `tests/` folder):
+
+| Script | Purpose |
+|--------|---------|
+| `ha_control.py` | Control HA/addon: restart, play, pause, status, position |
+| `quick_sync_check.py` | API-only sync monitoring, detects jumps/stutters |
+| `sync_test.py` | Full test with screenshots (requires playwright) |
+
+**Usage:**
+```bash
+# Check current position from both addon and HA
+python3 tests/ha_control.py position
+
+# Run 60-second sync check (API polling)
+python3 tests/quick_sync_check.py --duration 60 --interval 200
+
+# Control playback
+python3 tests/ha_control.py play
+python3 tests/ha_control.py pause
+python3 tests/ha_control.py status
+
+# Restart addon
+python3 tests/ha_control.py restart-addon
+
+# Full sync test with screenshots (uses venv for playwright)
+cd tests && .venv/bin/python sync_test.py --checks 5 --interval 10
+```
