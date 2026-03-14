@@ -8,6 +8,7 @@ import os
 import signal
 from dataclasses import asdict
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from typing import Optional
 
 import aiohttp
@@ -30,6 +31,23 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Export logs to samba-shared folder for external access
+LOG_EXPORT_DIR = "/media/lrc/logs"
+try:
+    os.makedirs(LOG_EXPORT_DIR, exist_ok=True)
+    file_handler = RotatingFileHandler(
+        os.path.join(LOG_EXPORT_DIR, "lyric_scroll.log"),
+        maxBytes=1024*1024,  # 1MB
+        backupCount=5
+    )
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    ))
+    logging.getLogger().addHandler(file_handler)
+    logger.info(f"Log export enabled to {LOG_EXPORT_DIR}")
+except Exception as e:
+    print(f"Warning: Could not set up log export: {e}")
 
 
 class LyricScrollApp:
