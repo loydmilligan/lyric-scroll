@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- Debug logging for frontend file serving
+- Better error message when frontend not found
+- Force Docker image rebuild
+
 ## 0.1.3
 
 - Extensive debug logging on startup

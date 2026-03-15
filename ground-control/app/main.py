@@ -36,7 +36,7 @@ CONFIG_PATHS = [
     "/share",
 ]
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 
 # Global state
 state: TaskState = TaskState()
@@ -130,9 +130,24 @@ def save_buckets():
 async def index_handler(request: web.Request) -> web.Response:
     """Serve the frontend HTML."""
     html_path = Path("/frontend/index.html")
+    logger.info(f"index_handler: Checking {html_path}, exists={html_path.exists()}")
+
     if html_path.exists():
+        logger.info(f"index_handler: Serving {html_path} ({html_path.stat().st_size} bytes)")
         return web.FileResponse(html_path)
-    return web.Response(text="Ground Control", content_type="text/html")
+
+    # Debug: List what's in /frontend
+    frontend_dir = Path("/frontend")
+    if frontend_dir.exists():
+        contents = list(frontend_dir.rglob("*"))
+        logger.warning(f"index_handler: /frontend exists but index.html not found. Contents: {contents}")
+    else:
+        logger.error(f"index_handler: /frontend directory does not exist!")
+        # Check what directories exist at root
+        root_contents = [p.name for p in Path("/").iterdir()]
+        logger.error(f"index_handler: Root contents: {root_contents}")
+
+    return web.Response(text="Ground Control - Frontend not found. Check addon logs.", content_type="text/html")
 
 
 async def static_handler(request: web.Request) -> web.Response:
