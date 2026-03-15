@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3
+
+- Extensive debug logging on startup
+- Shows filesystem exploration (/, /config, /homeassistant, /share, /data)
+- Shows directory contents when parsing
+- Shows task counts during parsing
+- Better error messages for troubleshooting
+
 ## 0.1.2
 
 - Add version badge to UI header (hover shows tasks_path)

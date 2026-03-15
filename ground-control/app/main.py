@@ -36,7 +36,7 @@ CONFIG_PATHS = [
     "/share",
 ]
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 # Global state
 state: TaskState = TaskState()
@@ -370,8 +370,27 @@ async def on_startup(app: web.Application):
     """Initialize on application startup."""
     global state, watcher, tasks_path
 
+    logger.info("=" * 60)
+    logger.info(f"Ground Control v{VERSION} starting up")
+    logger.info("=" * 60)
+
+    # Debug: Show filesystem root
+    logger.info("Filesystem exploration:")
+    for check_path in ["/", "/config", "/homeassistant", "/share", "/data"]:
+        p = Path(check_path)
+        if p.exists():
+            try:
+                contents = [c.name for c in p.iterdir()][:20]  # First 20 items
+                logger.info(f"  {check_path}: {contents}")
+            except Exception as e:
+                logger.info(f"  {check_path}: Error listing - {e}")
+        else:
+            logger.info(f"  {check_path}: Does not exist")
+
     # Load options
     options = load_options()
+    logger.info(f"Loaded options: {options}")
+
     configured_path = options.get("tasks_path", "")
 
     # Use configured path if valid, otherwise auto-detect

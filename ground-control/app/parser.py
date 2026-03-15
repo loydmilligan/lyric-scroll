@@ -2,11 +2,14 @@
 
 import re
 import yaml
+import logging
 from pathlib import Path
 from typing import Tuple, Dict, List, Optional
 from datetime import date
 
 from models import Task, Project, BucketsFile, BUCKETS
+
+logger = logging.getLogger(__name__)
 
 
 def parse_frontmatter(content: str) -> Tuple[dict, str]:
@@ -91,8 +94,19 @@ def parse_task_line(line: str, bucket: str) -> Optional[Task]:
 
 def parse_buckets_file(path: str) -> BucketsFile:
     """Parse buckets.md file."""
-    content = Path(path).read_text()
+    logger.info(f"parse_buckets_file: Reading {path}")
+
+    try:
+        content = Path(path).read_text()
+        logger.info(f"parse_buckets_file: Read {len(content)} bytes")
+        logger.debug(f"parse_buckets_file: First 500 chars: {content[:500]}")
+    except Exception as e:
+        logger.error(f"parse_buckets_file: Failed to read file: {e}")
+        return BucketsFile()
+
     frontmatter, body = parse_frontmatter(content)
+    logger.info(f"parse_buckets_file: Frontmatter keys: {list(frontmatter.keys())}")
+    logger.info(f"parse_buckets_file: Body length: {len(body)} chars")
 
     buckets_file = BucketsFile(
         version=frontmatter.get("version", "1.0.0"),
@@ -115,22 +129,33 @@ def parse_buckets_file(path: str) -> BucketsFile:
         "brainstorm": "brainstorm",
     }
 
+    lines_processed = 0
+    tasks_found = 0
+
     for line in body.split("\n"):
+        lines_processed += 1
+
         # Check for bucket header
         header_match = re.match(r"^##\s+(.+)$", line)
         if header_match:
             header_text = header_match.group(1).strip().lower()
             current_bucket = bucket_map.get(header_text)
+            logger.debug(f"parse_buckets_file: Found header '{header_text}' -> bucket '{current_bucket}'")
             continue
 
         # Parse task lines
         if current_bucket and line.strip().startswith("- "):
             task = parse_task_line(line, current_bucket)
             if task:
+                tasks_found += 1
                 buckets_file.tasks[current_bucket].append(task)
+                logger.debug(f"parse_buckets_file: Task found: {task.subject[:50]}...")
+
+    logger.info(f"parse_buckets_file: Processed {lines_processed} lines, found {tasks_found} tasks")
 
     # Update counts
     buckets_file.update_counts()
+    logger.info(f"parse_buckets_file: Final counts: {buckets_file.task_count}")
 
     return buckets_file
 
@@ -173,14 +198,34 @@ def load_task_state(tasks_path: str) -> "TaskState":
     """Load complete task state from .tasks/ directory."""
     from models import TaskState
 
+    logger.info(f"load_task_state: Loading from {tasks_path}")
+
     state = TaskState()
+
+    # Debug: List directory contents
+    tasks_dir = Path(tasks_path)
+    if tasks_dir.exists():
+        try:
+            contents = list(tasks_dir.iterdir())
+            logger.info(f"load_task_state: Directory contents: {[c.name for c in contents]}")
+        except Exception as e:
+            logger.error(f"load_task_state: Error listing directory: {e}")
+    else:
+        logger.error(f"load_task_state: Directory does not exist: {tasks_path}")
 
     # Load buckets
     buckets_path = Path(tasks_path) / "buckets.md"
+    logger.info(f"load_task_state: Checking {buckets_path}, exists={buckets_path.exists()}")
+
     if buckets_path.exists():
         state.buckets = parse_buckets_file(str(buckets_path))
+        total_tasks = sum(len(tasks) for tasks in state.buckets.tasks.values())
+        logger.info(f"load_task_state: Loaded {total_tasks} total tasks")
+    else:
+        logger.error(f"load_task_state: buckets.md not found at {buckets_path}")
 
     # Load projects
     state.projects = parse_all_projects(tasks_path)
+    logger.info(f"load_task_state: Loaded {len(state.projects)} projects: {list(state.projects.keys())}")
 
     return state
