@@ -37,7 +37,12 @@ class LyricScroll {
             displayIps: {},       // display entity_id -> IP address mapping
             castAppId: '',
             chromecastIp: '',
-            castMethod: 'automation' // 'automation' or 'direct'
+            castMethod: 'automation', // 'automation' or 'direct'
+            weatherApiKey: '',
+            weatherZip: '',
+            weatherUnits: 'imperial',
+            fallbackUrls: [],
+            fallbackRotationSeconds: 30
         };
 
         // Cast state
@@ -75,6 +80,13 @@ class LyricScroll {
         this.offsetValue = document.getElementById('offset-value');
         this.artPositionSelect = document.getElementById('art-position');
         this.artSizeSelect = document.getElementById('art-size');
+
+        // Fallback screen elements
+        this.weatherApiKeyInput = document.getElementById('weather-api-key');
+        this.weatherZipInput = document.getElementById('weather-zip');
+        this.weatherUnitsSelect = document.getElementById('weather-units');
+        this.fallbackUrlsTextarea = document.getElementById('fallback-urls');
+        this.fallbackRotationInput = document.getElementById('fallback-rotation');
 
         // Music Assistant elements
         this.maPlayersSelect = document.getElementById('ma-players');
@@ -797,6 +809,21 @@ class LyricScroll {
                 if (serverSettings.cast_method) {
                     this.settings.castMethod = serverSettings.cast_method;
                 }
+                if (serverSettings.weather_api_key !== undefined) {
+                    this.settings.weatherApiKey = serverSettings.weather_api_key;
+                }
+                if (serverSettings.weather_zip !== undefined) {
+                    this.settings.weatherZip = serverSettings.weather_zip;
+                }
+                if (serverSettings.weather_units !== undefined) {
+                    this.settings.weatherUnits = serverSettings.weather_units;
+                }
+                if (serverSettings.fallback_urls !== undefined) {
+                    this.settings.fallbackUrls = serverSettings.fallback_urls;
+                }
+                if (serverSettings.fallback_rotation_seconds !== undefined) {
+                    this.settings.fallbackRotationSeconds = serverSettings.fallback_rotation_seconds;
+                }
                 this.updateMAUI();
                 this.initCast();
             }
@@ -889,6 +916,23 @@ class LyricScroll {
         // Update Cast Method
         if (this.castMethodSelect) {
             this.castMethodSelect.value = this.settings.castMethod || 'automation';
+        }
+
+        // Update Fallback Screen settings
+        if (this.weatherApiKeyInput) {
+            this.weatherApiKeyInput.value = this.settings.weatherApiKey || '';
+        }
+        if (this.weatherZipInput) {
+            this.weatherZipInput.value = this.settings.weatherZip || '';
+        }
+        if (this.weatherUnitsSelect) {
+            this.weatherUnitsSelect.value = this.settings.weatherUnits || 'imperial';
+        }
+        if (this.fallbackUrlsTextarea) {
+            this.fallbackUrlsTextarea.value = (this.settings.fallbackUrls || []).join('\n');
+        }
+        if (this.fallbackRotationInput) {
+            this.fallbackRotationInput.value = this.settings.fallbackRotationSeconds || 30;
         }
     }
 
@@ -986,7 +1030,12 @@ class LyricScroll {
                     display_ips: this.settings.displayIps,
                     cast_app_id: this.settings.castAppId,
                     chromecast_ip: this.settings.chromecastIp,
-                    cast_method: this.settings.castMethod
+                    cast_method: this.settings.castMethod,
+                    weather_api_key: this.settings.weatherApiKey,
+                    weather_zip: this.settings.weatherZip,
+                    weather_units: this.settings.weatherUnits,
+                    fallback_urls: this.settings.fallbackUrls,
+                    fallback_rotation_seconds: this.settings.fallbackRotationSeconds
                 })
             });
 
@@ -1159,6 +1208,50 @@ class LyricScroll {
             this.castMethodSelect.addEventListener('change', (e) => {
                 this.settings.castMethod = e.target.value;
                 this.saveSettings();
+                this.saveMASettings();
+            });
+        }
+
+        // Fallback Screen - Weather API Key
+        if (this.weatherApiKeyInput) {
+            this.weatherApiKeyInput.addEventListener('change', (e) => {
+                this.settings.weatherApiKey = e.target.value.trim();
+                this.saveMASettings();
+            });
+        }
+
+        // Fallback Screen - Weather ZIP
+        if (this.weatherZipInput) {
+            this.weatherZipInput.addEventListener('change', (e) => {
+                this.settings.weatherZip = e.target.value.trim();
+                this.saveMASettings();
+            });
+        }
+
+        // Fallback Screen - Weather Units
+        if (this.weatherUnitsSelect) {
+            this.weatherUnitsSelect.addEventListener('change', (e) => {
+                this.settings.weatherUnits = e.target.value;
+                this.saveMASettings();
+            });
+        }
+
+        // Fallback Screen - URLs
+        if (this.fallbackUrlsTextarea) {
+            this.fallbackUrlsTextarea.addEventListener('change', (e) => {
+                // Split by newlines, trim, and filter out empty lines
+                this.settings.fallbackUrls = e.target.value
+                    .split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+                this.saveMASettings();
+            });
+        }
+
+        // Fallback Screen - Rotation Seconds
+        if (this.fallbackRotationInput) {
+            this.fallbackRotationInput.addEventListener('change', (e) => {
+                this.settings.fallbackRotationSeconds = parseInt(e.target.value, 10) || 30;
                 this.saveMASettings();
             });
         }

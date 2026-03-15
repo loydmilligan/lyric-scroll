@@ -391,7 +391,12 @@ class LyricScrollApp:
             "display_ips": {},          # Maps display entity_id to IP address
             "cast_app_id": "",          # Custom Cast Receiver App ID
             "chromecast_ip": "",        # IP address of target Chromecast for auto-casting
-            "cast_method": "automation" # 'automation' or 'direct'
+            "cast_method": "automation", # 'automation' or 'direct'
+            "weather_api_key": "",           # OpenWeather API key
+            "weather_zip": "90232",          # Zip code
+            "weather_units": "imperial",     # imperial/metric
+            "fallback_urls": [],             # URLs to rotate in iframe
+            "fallback_rotation_seconds": 30  # Rotation interval
         }
 
         try:
@@ -583,7 +588,18 @@ class LyricScrollApp:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
-                lambda: self.caster.send_data({"recentTracks": self.recent_tracks})
+                lambda: self.caster.send_data({
+                    "recentTracks": self.recent_tracks,
+                    "fallbackConfig": {
+                        "weather": {
+                            "apiKey": self.settings.get("weather_api_key", ""),
+                            "zip": self.settings.get("weather_zip", "90232"),
+                            "units": self.settings.get("weather_units", "imperial")
+                        },
+                        "iframes": self.settings.get("fallback_urls", []),
+                        "rotationSeconds": self.settings.get("fallback_rotation_seconds", 30)
+                    }
+                })
             )
             logger.debug(f"Sent {len(self.recent_tracks)} recent tracks to receiver")
         except Exception as e:
@@ -601,7 +617,7 @@ class LyricScrollApp:
             data = await request.json()
 
             # Update settings (only known keys)
-            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id", "chromecast_ip", "cast_method"]:
+            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id", "chromecast_ip", "cast_method", "weather_api_key", "weather_zip", "weather_units", "fallback_urls", "fallback_rotation_seconds"]:
                 if key in data:
                     self.settings[key] = data[key]
 
