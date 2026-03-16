@@ -39,7 +39,7 @@ CONFIG_PATHS = [
     "/share",
 ]
 
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 
 # Global state
 state: TaskState = TaskState()

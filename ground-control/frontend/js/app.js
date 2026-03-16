@@ -25,7 +25,7 @@ class GroundControl {
 
     async loadVersion() {
         try {
-            const response = await fetch('/api/version');
+            const response = await fetch('api/version');
             const data = await response.json();
             const badge = document.getElementById('version-badge');
             if (badge && data.version) {
@@ -40,7 +40,10 @@ class GroundControl {
     // WebSocket Connection
     connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        // Use pathname to support ingress (e.g., /api/hassio_ingress/<token>/)
+        let basePath = window.location.pathname;
+        if (!basePath.endsWith('/')) basePath += '/';
+        const wsUrl = `${protocol}//${window.location.host}${basePath}ws`;
 
         this.ws = new WebSocket(wsUrl);
 
@@ -317,7 +320,7 @@ class GroundControl {
 
     async moveTask(taskId, targetBucket) {
         try {
-            const response = await fetch(`/api/tasks/${taskId}/move`, {
+            const response = await fetch(`api/tasks/${taskId}/move`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ bucket: targetBucket }),
@@ -387,7 +390,7 @@ class GroundControl {
             data.blocked_by = blockedBy;
 
             try {
-                const response = await fetch(`/api/tasks/${taskId}`, {
+                const response = await fetch(`api/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
@@ -406,7 +409,7 @@ class GroundControl {
         } else {
             // Create new task
             try {
-                const response = await fetch('/api/tasks', {
+                const response = await fetch('api/tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
