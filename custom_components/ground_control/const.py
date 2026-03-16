@@ -16,4 +16,4 @@ BINARY_HAS_ACTIVE = "has_active"
 BINARY_HAS_BLOCKED = "has_blocked"
 
 # Update interval in seconds
-UPDATE_INTERVAL = 30
+UPDATE_INTERVAL = 10

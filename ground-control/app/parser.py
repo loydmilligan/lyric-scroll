@@ -58,8 +58,8 @@ def parse_task_line(line: str, bucket: str) -> Optional[Task]:
 
     task = Task(id="", subject="", bucket=bucket)
 
-    # Check for completed date prefix: **YYYY-MM-DD**:
-    completed_match = re.match(r"\*\*(\d{4}-\d{2}-\d{2})\*\*:\s*", line)
+    # Check for completed date prefix: **YYYY-MM-DD** or **YYYY-MM-DD HH:MM**:
+    completed_match = re.match(r"\*\*(\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?)\*\*:\s*", line)
     if completed_match:
         task.completed_date = completed_match.group(1)
         line = line[completed_match.end() :]

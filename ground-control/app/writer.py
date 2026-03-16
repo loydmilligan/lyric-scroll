@@ -2,7 +2,7 @@
 
 import yaml
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
 from typing import Dict, List
 
 from models import Task, Project, BucketsFile, BUCKETS
@@ -197,7 +197,7 @@ def move_task(buckets: BucketsFile, task_id: str, target_bucket: str) -> bool:
     # Update task
     task.bucket = target_bucket
     if target_bucket == "completed":
-        task.completed_date = date.today().isoformat()
+        task.completed_date = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     # Add to target
     buckets.tasks[target_bucket].append(task)

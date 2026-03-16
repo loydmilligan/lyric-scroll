@@ -6,6 +6,7 @@ Provides utilities to:
 - Restart the Lyric Scroll addon
 - Control media playback (play/pause/stop)
 - Query player state
+- Pull and view addon logs
 - Trigger test scenarios
 
 Usage:
@@ -14,6 +15,9 @@ Usage:
     python3 ha_control.py pause
     python3 ha_control.py status
     python3 ha_control.py position
+    python3 ha_control.py logs              # Pull and show last 50 lines
+    python3 ha_control.py logs -n 100       # Show last 100 lines
+    python3 ha_control.py logs --sync       # Just sync, don't display
 """
 
 import os
@@ -21,6 +25,8 @@ import sys
 import json
 import argparse
 import time
+import subprocess
+from pathlib import Path
 from datetime import datetime
 
 try:
@@ -33,9 +39,13 @@ except ImportError:
 # Configuration
 HA_URL = "http://192.168.6.8:8123"
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
-ADDON_SLUG = "local_lyric_scroll"  # Addon slug in HA
+ADDON_SLUG = "0e93ca0c_lyric_scroll"  # Addon slug in HA
 PLAYER_ENTITY = "media_player.office"
 ADDON_URL = "https://lyric-scroll.mattmariani.com"
+
+# Log sync paths
+NAS_LOG_PATH = "/mnt/y/logs/lyric_scroll.log"  # Mounted NAS share
+LOCAL_LOG_PATH = Path("/mnt/c/Users/mmariani/Music/lrc/logs/lyric_scroll.log")
 
 
 def check_token():
@@ -243,6 +253,48 @@ def cmd_addon_players():
         print(f"  {p.get('entity_id')}: {p.get('friendly_name')} [{p.get('state')}]")
 
 
+def cmd_logs(lines: int = 50, follow: bool = False):
+    """Pull and display addon logs.
+
+    Uses local cache synced by PowerShell watcher script.
+    Run sync-lrc.ps1 in PowerShell to keep logs updated.
+    """
+    log_path = LOCAL_LOG_PATH
+
+    if not log_path.exists():
+        print(f"Log file not found: {log_path}")
+        print("Make sure sync-lrc.ps1 is running in PowerShell to sync logs from NAS.")
+        sys.exit(1)
+
+    # Check how stale the logs are
+    mtime = log_path.stat().st_mtime
+    age_seconds = time.time() - mtime
+    if age_seconds > 300:  # 5 minutes
+        age_mins = int(age_seconds / 60)
+        print(f"WARNING: Logs are {age_mins} minutes old. Is sync-lrc.ps1 running?")
+        print()
+
+    # Follow mode - tail -f
+    if follow:
+        print(f"Following {log_path} (Ctrl+C to stop)...")
+        try:
+            subprocess.run(["tail", "-f", str(log_path)])
+        except KeyboardInterrupt:
+            print("\nStopped.")
+        return
+
+    # Display last N lines
+    result = subprocess.run(
+        ["tail", "-n", str(lines), str(log_path)],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print(f"=== Last {lines} lines ({log_path.stat().st_size // 1024}KB total) ===\n")
+        print(result.stdout)
+    else:
+        print(f"Error reading logs: {result.stderr}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Home Assistant Control for Lyric Scroll Testing")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -267,6 +319,11 @@ def main():
     subparsers.add_parser("status", help="Get full player status")
     subparsers.add_parser("position", help="Get current position (sync comparison)")
 
+    # Log commands
+    logs_parser = subparsers.add_parser("logs", help="Display addon logs (synced via PowerShell)")
+    logs_parser.add_argument("-n", "--lines", type=int, default=50, help="Number of lines to show (default: 50)")
+    logs_parser.add_argument("-f", "--follow", action="store_true", help="Follow log output (tail -f)")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -284,6 +341,7 @@ def main():
         "volume": lambda: cmd_volume(args.level),
         "status": cmd_status,
         "position": cmd_position,
+        "logs": lambda: cmd_logs(args.lines, args.follow),
     }
 
     cmd_func = commands.get(args.command)
