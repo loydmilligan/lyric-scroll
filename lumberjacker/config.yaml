@@ -1,0 +1,35 @@
+name: Lumberjacker
+version: "0.1.0"
+slug: lumberjacker
+description: HA log watcher that triages and prioritizes log issues
+url: https://github.com/loydmilligan/ha-addons
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8101
+panel_icon: mdi:axe
+panel_title: Lumberjacker
+ports:
+  8101/tcp: 8101
+ports_description:
+  8101/tcp: Direct web UI access
+host_network: true
+homeassistant_api: true
+hassio_api: true
+auth_api: true
+options:
+  log_path: "/config/home-assistant.log"
+  check_interval: 60
+  severity_threshold: "warning"
+schema:
+  log_path: str
+  check_interval: int
+  severity_threshold: list(error|warning|info)?
+map:
+  - config:ro
+  - share:rw
