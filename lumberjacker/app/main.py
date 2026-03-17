@@ -156,6 +156,11 @@ class LogWatcher:
 
     def _load_state(self):
         """Load previous state."""
+        # Start fresh to debug log format (temporary)
+        logger.info("Starting with fresh state (debug mode)")
+        self.seen_lines = set()
+        return
+        # Normal state loading (disabled for debugging)
         if STATE_PATH.exists():
             try:
                 state = json.loads(STATE_PATH.read_text())
@@ -237,9 +242,9 @@ class LogWatcher:
             self.seen_lines.add(line_hash)
             new_lines += 1
 
-            # Log first few new lines for debugging
+            # Log first few new lines for debugging (at INFO level to diagnose format issues)
             if not sample_logged and new_lines <= 3:
-                logger.debug(f"Sample line: {line[:150]}")
+                logger.info(f"Sample line {new_lines}: {line[:200]}")
             if new_lines == 3:
                 sample_logged = True
 

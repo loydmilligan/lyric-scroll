@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+- DEBUG: Log sample lines at INFO level to see actual log format
+- DEBUG: Start with fresh state (ignores cache) to ensure we see log samples
+- This is a diagnostic release to identify log format issues
+
 ## 0.2.2
 
 - Fix log pattern regex to handle optional milliseconds and flexible whitespace
