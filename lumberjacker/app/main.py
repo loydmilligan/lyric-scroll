@@ -372,6 +372,26 @@ async def main():
     options = load_options()
     logger.info(f"Lumberjacker starting with options: {options}")
 
+    # Debug: show what's in /config
+    config_path = Path("/config")
+    if config_path.exists():
+        logger.info(f"/config exists, contents: {list(config_path.iterdir())[:20]}")
+    else:
+        logger.warning("/config directory does not exist!")
+
+    # Check alternative log locations
+    log_locations = [
+        "/config/home-assistant.log",
+        "/homeassistant/home-assistant.log",
+        "/config/logs/home-assistant.log",
+    ]
+    for loc in log_locations:
+        p = Path(loc)
+        if p.exists():
+            logger.info(f"Found log at: {loc} (size: {p.stat().st_size} bytes)")
+        else:
+            logger.debug(f"No log at: {loc}")
+
     # Initialize watcher
     watcher = LogWatcher(
         log_path=options.get("log_path", "/config/home-assistant.log"),
