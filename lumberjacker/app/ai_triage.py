@@ -151,7 +151,8 @@ class AITriageEngine:
             return results
 
         except Exception as e:
-            logger.error(f"AI triage failed: {e}")
+            logger.error(f"AI triage failed: {type(e).__name__}: {e}")
+            logger.exception("AI triage traceback:")
             return []
 
     async def _call_openrouter(self, user_prompt: str) -> Optional[dict]:
@@ -182,8 +183,12 @@ class AITriageEngine:
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    content = data["choices"][0]["message"]["content"]
-                    return json.loads(content)
+                    try:
+                        content = data["choices"][0]["message"]["content"]
+                        return json.loads(content)
+                    except (KeyError, IndexError) as e:
+                        logger.error(f"Unexpected OpenRouter response structure: {data}")
+                        return None
                 elif resp.status == 429:
                     logger.warning("OpenRouter rate limited, will retry later")
                     return None

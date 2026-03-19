@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+- Fix empty error message in AI triage failure logging
+  - Now logs exception type and full traceback for debugging
+- Fix KeyError/IndexError when OpenRouter returns unexpected response structure
+  - Gracefully handles malformed API responses
+
 ## 0.4.0
 
 ### AI Triage Integration
