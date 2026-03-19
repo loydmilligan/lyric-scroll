@@ -238,7 +238,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.5.19 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.5.20 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -398,8 +398,9 @@ class LyricScroll {
 
         // Clear any existing interval
         if (this.syncCheckInterval) clearInterval(this.syncCheckInterval);
-        // Check sync health every 3 seconds
-        this.syncCheckInterval = setInterval(() => this.checkSyncHealth(), 3000);
+        // Sync health check disabled - MA players don't report media_position
+        // Just trust the initial sync and let lyrics play
+        // this.syncCheckInterval = setInterval(() => this.checkSyncHealth(), 3000);
     }
 
     stopPositionTracking() {

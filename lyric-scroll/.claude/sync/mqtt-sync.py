@@ -112,6 +112,20 @@ def is_intro_message(content: str) -> bool:
     return fm.get('type', '').lower() == 'intro'
 
 
+def extract_short_id(msg_id: str) -> str:
+    """Extract short message ID (date + sequence) from full filename stem.
+
+    Examples:
+        "2026-03-18-001-lsa-to-major-tom" -> "2026-03-18-001"
+        "2026-03-18-001" -> "2026-03-18-001"
+    """
+    parts = msg_id.split('-')
+    if len(parts) >= 4:
+        # YYYY-MM-DD-NNN format
+        return '-'.join(parts[:4])
+    return msg_id
+
+
 def send_message(filepath: Path):
     """Send a single message file to one or more recipients."""
     if not filepath.exists():
@@ -148,8 +162,10 @@ def send_message(filepath: Path):
         print(f"Sent INTRO: {filename} -> {topic}")
     else:
         # Regular messages go to each recipient's topic
+        # Use short ID (date+seq) to avoid redundant sender-recipient in topic
+        short_id = extract_short_id(msg_id)
         for recipient in recipients:
-            topic = f"agent-sync/{AGENT_ID}-to-{recipient}/{msg_id}"
+            topic = f"agent-sync/{AGENT_ID}-to-{recipient}/{short_id}"
             result = client.publish(topic, payload, retain=True, qos=1)
             result.wait_for_publish(timeout=5)
             print(f"Sent: {filename} -> {topic}")
@@ -189,15 +205,34 @@ def receive_messages():
     def on_message(client, userdata, msg):
         topic = msg.topic
 
-        # Filter: only accept messages TO this agent or intro broadcasts
+        # Filter: accept messages TO this agent, intro broadcasts, or feature updates
         is_to_me = f"-to-{AGENT_ID}/" in topic
         is_intro_topic = topic.startswith("agent-sync/intro/")
+        is_feature_topic = topic.startswith("agent-sync/feature/")
 
-        if not is_to_me and not is_intro_topic:
+        if not is_to_me and not is_intro_topic and not is_feature_topic:
             return
 
         try:
             payload = json.loads(msg.payload.decode())
+
+            # Handle feature updates specially
+            if is_feature_topic:
+                feature_id = payload.get("feature_id", "unknown")
+                filename = f"feature-{feature_id}.json"
+                content = json.dumps(payload, indent=2)
+                sender = payload.get("metadata", {}).get("from", "asa")
+
+                dest = INBOX / filename
+                archived = ARCHIVE / filename
+                if not dest.exists() and not archived.exists():
+                    dest.write_text(content)
+                    print(f"Received FEATURE from {sender}: {filename}")
+                    received.append(filename)
+                else:
+                    print(f"Already have: {filename}")
+                return
+
             filename = payload.get("filename", f"msg-{int(time.time())}.md")
             content = payload.get("content", msg.payload.decode())
             is_intro = payload.get("is_intro", False)
