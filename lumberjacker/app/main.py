@@ -59,11 +59,13 @@ PRIORITY_HIGH = "high"
 PRIORITY_MEDIUM = "medium"
 PRIORITY_LOW = "low"
 
-# Log line pattern from Supervisor API: "WARNING homeassistant.components.foo - message"
+# Log line pattern from Supervisor API: "2026-03-18 04:41:54.627 ERROR (Thread-22) [component] message"
 LOG_PATTERN = re.compile(
-    r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+"
-    r"([^\s]+)\s+-\s+"
-    r"(.*)$"
+    r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+"  # timestamp
+    r"(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+"          # severity
+    r"\([^)]+\)\s+"                                    # thread info (ignored)
+    r"\[([^\]]+)\]\s*"                                 # component in brackets
+    r"(.*)$"                                           # message
 )
 
 

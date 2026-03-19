@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Fix log pattern regex to match actual HA log format with timestamps
+  - Format: `2026-03-18 04:41:54.627 ERROR (Thread-22) [component] message`
+  - Previous regex expected `ERROR component - message` which doesn't match
+
 ## 0.3.0
 
 - **BREAKING**: Fix log pattern regex to match actual Supervisor API format

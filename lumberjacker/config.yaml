@@ -1,5 +1,5 @@
 name: Lumberjacker
-version: "0.3.0"
+version: "0.3.1"
 slug: lumberjacker
 description: HA log watcher that triages and prioritizes log issues
 url: https://github.com/loydmilligan/ha-addons
