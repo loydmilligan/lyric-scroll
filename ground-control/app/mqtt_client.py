@@ -37,6 +37,8 @@ class AgentTask:
         self.status = data.get("status", "pending")
         self.metadata = data.get("metadata", {})
         self.submitted_at = self.metadata.get("submitted_at", "")
+        self.suggested_bucket = data.get("suggested_bucket", "work_queue")
+        self.notes = data.get("notes", "")
         self.raw_data = data
 
     def to_dict(self) -> dict:
@@ -51,6 +53,8 @@ class AgentTask:
             "priority": self.priority,
             "status": self.status,
             "submitted_at": self.submitted_at,
+            "suggested_bucket": self.suggested_bucket,
+            "notes": self.notes,
         }
 
 
@@ -60,7 +64,8 @@ class MQTTTaskClient:
     def __init__(self, on_tasks_update: Optional[Callable] = None):
         self.client: Optional[mqtt.Client] = None
         self.connected = False
-        self.pending_tasks: Dict[str, AgentTask] = {}
+        self.pending_tasks: Dict[str, AgentTask] = {}  # Human approval queue
+        self.agent_tasks: Dict[str, AgentTask] = {}    # Agent-level (Major Tom) queue
         self.completed_tasks: List[AgentTask] = []
         self.on_tasks_update = on_tasks_update
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -118,50 +123,58 @@ class MQTTTaskClient:
 
             task = AgentTask(payload)
 
-            # Only show tasks that need human approval
-            if task.approval_level == "human" and task.status == "pending":
-                self.pending_tasks[task.task_id] = task
-                logger.info(f"[MQTT] Added pending task: {task.task_id} - {task.title}")
+            if task.status != "pending":
+                return
 
-                # Notify listeners
-                if self.on_tasks_update and self._loop:
-                    self._loop.call_soon_threadsafe(
-                        lambda: asyncio.create_task(self.on_tasks_update())
-                    )
+            # Route to appropriate queue based on approval_level
+            if task.approval_level == "human":
+                self.pending_tasks[task.task_id] = task
+                logger.info(f"[MQTT] Added to human queue: {task.task_id} - {task.title}")
+            else:
+                # Agent-level tasks (Major Tom queue)
+                self.agent_tasks[task.task_id] = task
+                logger.info(f"[MQTT] Added to agent queue: {task.task_id} - {task.title}")
+
+            # Notify listeners
+            if self.on_tasks_update and self._loop:
+                self._loop.call_soon_threadsafe(
+                    lambda: asyncio.create_task(self.on_tasks_update())
+                )
 
         except json.JSONDecodeError:
             logger.error(f"[MQTT] Invalid JSON in message")
         except Exception as e:
             logger.error(f"[MQTT] Error processing message: {e}")
 
-    def approve_task(self, task_id: str, approver: str = "human") -> bool:
-        """Approve a pending task."""
+    def approve_task(self, task_id: str, bucket: str = "work_queue", approver: str = "human") -> Optional[AgentTask]:
+        """Approve a pending task and return the task for adding to the task system."""
         if task_id not in self.pending_tasks:
-            return False
+            return None
 
         task = self.pending_tasks.pop(task_id)
         task.status = "approved"
 
-        # Publish approval status
+        # Publish approval status with bucket assignment
         status_payload = {
             "task_id": task_id,
             "status": "approved",
             "approved_by": approver,
             "approved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "assigned_bucket": bucket,
             "original_task": task.raw_data,
         }
 
         if self.client and self.connected:
             topic = f"{TASKS_STATUS_TOPIC}/{task_id}"
             self.client.publish(topic, json.dumps(status_payload), retain=True, qos=1)
-            logger.info(f"[MQTT] Published approval for {task_id}")
+            logger.info(f"[MQTT] Published approval for {task_id} -> bucket: {bucket}")
 
         # Add to completed list
         self.completed_tasks.insert(0, task)
         # Keep only last 50 completed tasks
         self.completed_tasks = self.completed_tasks[:50]
 
-        return True
+        return task
 
     def reject_task(self, task_id: str, reason: str = "", rejector: str = "human") -> bool:
         """Reject a pending task."""
@@ -193,12 +206,23 @@ class MQTTTaskClient:
         return True
 
     def get_pending_tasks(self) -> List[dict]:
-        """Get list of pending tasks."""
+        """Get list of pending human-approval tasks."""
         return [task.to_dict() for task in self.pending_tasks.values()]
+
+    def get_agent_tasks(self) -> List[dict]:
+        """Get list of agent-level tasks (Major Tom queue)."""
+        return [task.to_dict() for task in self.agent_tasks.values()]
 
     def get_completed_tasks(self) -> List[dict]:
         """Get list of recently completed tasks."""
         return [task.to_dict() for task in self.completed_tasks]
+
+    def add_note_to_task(self, task_id: str, note: str) -> bool:
+        """Add a note to an agent-level task."""
+        if task_id in self.agent_tasks:
+            self.agent_tasks[task_id].notes = note
+            return True
+        return False
 
     def get_status(self) -> dict:
         """Get MQTT client status."""
@@ -206,5 +230,6 @@ class MQTTTaskClient:
             "connected": self.connected,
             "broker": MQTT_BROKER,
             "pending_count": len(self.pending_tasks),
+            "agent_count": len(self.agent_tasks),
             "completed_count": len(self.completed_tasks),
         }

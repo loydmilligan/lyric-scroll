@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.14
+
+- Rename "Agent Tasks" tab to "Task Queue"
+- Add Human Approval and Major Tom Queue sub-tabs
+- Approval modal with bucket selection (agents can suggest default bucket)
+- Add notes to agent-level tasks in Major Tom Queue
+- History tab now shows times alongside dates (YYYY-MM-DD • HH:MM)
+- New API endpoints: GET /api/agent-tasks/agent, POST /api/agent-tasks/{id}/note
+- Tasks approved via UI are automatically added to the task system
+
 ## 0.1.13
 
 - Add MQTT configuration options (mqtt_broker, mqtt_port, mqtt_user, mqtt_pass)

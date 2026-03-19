@@ -1,0 +1,29 @@
+{
+  "feature_id": "topic-cleanup-v1",
+  "version": "1.0.0",
+  "type": "feature-update",
+  "title": "Topic Structure Cleanup",
+  "description": "Clean up MQTT topic structure to remove redundant sender-recipient info from message IDs. Topics become shorter and cleaner while filenames remain descriptive.",
+  "schema_changes": {
+    "new_fields": [],
+    "deprecated_fields": [],
+    "breaking": false
+  },
+  "implementation": {
+    "files_to_update": [
+      ".claude/sync/mqtt-sync.py"
+    ],
+    "instructions": "Add extract_short_id() function and use it when building topics in send_message().\n\n1. Add this function after is_intro_message():\n\ndef extract_short_id(msg_id: str) -> str:\n    \"\"\"Extract short message ID (date + sequence) from full filename stem.\"\"\"\n    parts = msg_id.split('-')\n    if len(parts) >= 4:\n        return '-'.join(parts[:4])  # YYYY-MM-DD-NNN\n    return msg_id\n\n2. In send_message(), change the topic generation:\n\n# Before:\ntopic = f\"agent-sync/{AGENT_ID}-to-{recipient}/{msg_id}\"\n\n# After:\nshort_id = extract_short_id(msg_id)\ntopic = f\"agent-sync/{AGENT_ID}-to-{recipient}/{short_id}\"",
+    "code_snippet": "def extract_short_id(msg_id: str) -> str:\n    parts = msg_id.split('-')\n    if len(parts) >= 4:\n        return '-'.join(parts[:4])\n    return msg_id",
+    "test_command": "Create a test message and verify the topic path is clean (no redundant sender-recipient in topic)"
+  },
+  "rollout": {
+    "required": true,
+    "priority": "P2",
+    "deadline": "2026-03-20"
+  },
+  "metadata": {
+    "from": "asa",
+    "published_at": "2026-03-19T00:31:15Z"
+  }
+}

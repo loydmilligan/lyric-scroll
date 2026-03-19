@@ -277,7 +277,7 @@ def receive_messages():
         print("No new messages.")
 
 
-def submit_task(title: str, description: str = "", level: str = "agent", category: str = "action"):
+def submit_task(title: str, description: str = "", level: str = "agent", category: str = "action", bucket: str = "work_queue"):
     """Submit a task proposal to the agent network."""
     today = time.strftime("%Y-%m-%d")
     existing = list(OUTBOX.glob(f"{today}-*.md")) + list(ARCHIVE.glob(f"{today}-*.md"))
@@ -294,6 +294,7 @@ def submit_task(title: str, description: str = "", level: str = "agent", categor
         "category": category,
         "priority": "P3",
         "status": "pending",
+        "suggested_bucket": bucket,
         "metadata": {
             "submitted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
@@ -359,23 +360,26 @@ def main():
         check_status()
     elif cmd == "task":
         if len(sys.argv) < 3:
-            print("Usage: mqtt-sync.py task <title> [--level=agent] [--category=action]")
+            print("Usage: mqtt-sync.py task <title> [--level=human|agent] [--category=action] [--bucket=work_queue]")
             sys.exit(1)
         title_parts = []
-        level = "agent"
+        level = "human"  # Default to human approval
         category = "action"
+        bucket = "work_queue"
         for arg in sys.argv[2:]:
             if arg.startswith("--level="):
                 level = arg.split("=", 1)[1]
             elif arg.startswith("--category="):
                 category = arg.split("=", 1)[1]
+            elif arg.startswith("--bucket="):
+                bucket = arg.split("=", 1)[1]
             else:
                 title_parts.append(arg)
         title = " ".join(title_parts).strip("\"'")
         if not title:
             print("ERROR: Task title required")
             sys.exit(1)
-        submit_task(title, level=level, category=category)
+        submit_task(title, level=level, category=category, bucket=bucket)
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)

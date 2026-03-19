@@ -503,16 +503,40 @@ async def api_get_agent_tasks(request: web.Request) -> web.Response:
 
 
 async def api_approve_task(request: web.Request) -> web.Response:
-    """Approve an agent task."""
+    """Approve an agent task and assign to bucket."""
     task_id = request.match_info.get("id", "")
     if not mqtt_client:
         return web.json_response({"error": "MQTT not connected"}, status=503)
 
-    success = mqtt_client.approve_task(task_id)
-    if success:
-        await broadcast({"type": "agent_task_updated"})
-        return web.json_response({"success": True, "task_id": task_id})
-    return web.json_response({"error": "Task not found"}, status=404)
+    # Get bucket from request body
+    try:
+        data = await request.json()
+        bucket = data.get("bucket", "work_queue")
+    except:
+        bucket = "work_queue"
+
+    # Validate bucket
+    if bucket not in BUCKETS:
+        return web.json_response({"error": f"Invalid bucket: {bucket}"}, status=400)
+
+    # Approve the task via MQTT
+    agent_task = mqtt_client.approve_task(task_id, bucket=bucket)
+    if not agent_task:
+        return web.json_response({"error": "Task not found"}, status=404)
+
+    # Create a new task in the task system
+    task = create_task(
+        state.buckets,
+        subject=agent_task.title,
+        bucket=bucket,
+        description=agent_task.description,
+    )
+
+    save_buckets()
+    await broadcast({"type": "agent_task_updated"})
+    await broadcast({"type": "task_created", "data": task.to_dict()})
+
+    return web.json_response({"status": "approved", "bucket": bucket, "task_id": task.id})
 
 
 async def api_reject_task(request: web.Request) -> web.Response:
@@ -531,6 +555,32 @@ async def api_reject_task(request: web.Request) -> web.Response:
     if success:
         await broadcast({"type": "agent_task_updated"})
         return web.json_response({"success": True, "task_id": task_id})
+    return web.json_response({"error": "Task not found"}, status=404)
+
+
+async def api_get_agent_level_tasks(request: web.Request) -> web.Response:
+    """Get agent-level tasks (Major Tom queue)."""
+    if not mqtt_client:
+        return web.json_response([])
+    tasks = mqtt_client.get_agent_tasks()
+    return web.json_response(tasks)
+
+
+async def api_add_task_note(request: web.Request) -> web.Response:
+    """Add a note to an agent-level task."""
+    task_id = request.match_info.get("id", "")
+    if not mqtt_client:
+        return web.json_response({"error": "MQTT not connected"}, status=503)
+
+    try:
+        data = await request.json()
+        note = data.get("note", "")
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    if mqtt_client.add_note_to_task(task_id, note):
+        await broadcast({"type": "agent_task_updated"})
+        return web.json_response({"status": "ok"})
     return web.json_response({"error": "Task not found"}, status=404)
 
 
@@ -565,8 +615,10 @@ def create_app() -> web.Application:
 
     # Agent task routes
     app.router.add_get("/api/agent-tasks", api_get_agent_tasks)
+    app.router.add_get("/api/agent-tasks/agent", api_get_agent_level_tasks)
     app.router.add_post("/api/agent-tasks/{id}/approve", api_approve_task)
     app.router.add_post("/api/agent-tasks/{id}/reject", api_reject_task)
+    app.router.add_post("/api/agent-tasks/{id}/note", api_add_task_note)
 
     return app
 

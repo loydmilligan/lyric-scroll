@@ -14,7 +14,7 @@
             <div class="header-left">
                 <span class="logo">🚀</span>
                 <h1>Ground Control</h1>
-                <span class="version-badge" id="version-badge">v0.1.12</span>
+                <span class="version-badge" id="version-badge">v0.1.14</span>
             </div>
             <div class="header-right">
                 <div class="view-tabs">
@@ -23,7 +23,7 @@
                     <button class="tab" data-view="history">History</button>
                     <button class="tab" data-view="agents">
                         <span id="agent-tasks-badge" class="tab-badge hidden">0</span>
-                        Agent Tasks
+                        Task Queue
                     </button>
                 </div>
                 <button class="btn btn-primary" id="new-task-btn">+ New Task</button>
@@ -98,28 +98,126 @@
                 <div class="history-list" id="history-list"></div>
             </div>
 
-            <!-- Agent Tasks View -->
+            <!-- Task Approval Queue View -->
             <div id="agents-view" class="view">
                 <div class="agent-tasks-header">
-                    <h2>Agent Task Approvals</h2>
+                    <h2>Task Approval Queue</h2>
                     <span class="mqtt-status" id="mqtt-status">
                         <span class="status-dot disconnected"></span>
                         <span class="status-text">Disconnected</span>
                     </span>
                 </div>
 
-                <div class="agent-tasks-section">
-                    <h3>Pending Approval</h3>
-                    <div class="agent-tasks-list" id="pending-tasks-list">
-                        <div class="empty-state">No pending tasks</div>
+                <!-- Sub-tabs for Human/Agent queues -->
+                <div class="queue-tabs">
+                    <button class="queue-tab active" data-queue="human">
+                        <span id="human-queue-badge" class="tab-badge hidden">0</span>
+                        Human Approval
+                    </button>
+                    <button class="queue-tab" data-queue="agent">
+                        <span id="agent-queue-badge" class="tab-badge hidden">0</span>
+                        Major Tom Queue
+                    </button>
+                </div>
+
+                <!-- Human Approval Queue -->
+                <div id="human-queue" class="queue-panel active">
+                    <div class="agent-tasks-section">
+                        <h3>Pending Your Approval</h3>
+                        <div class="agent-tasks-list" id="pending-tasks-list">
+                            <div class="empty-state">No pending tasks</div>
+                        </div>
+                    </div>
+
+                    <div class="agent-tasks-section">
+                        <h3>Recently Processed</h3>
+                        <div class="agent-tasks-list completed" id="completed-tasks-list">
+                            <div class="empty-state">No recent tasks</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="agent-tasks-section">
-                    <h3>Recently Processed</h3>
-                    <div class="agent-tasks-list completed" id="completed-tasks-list">
-                        <div class="empty-state">No recent tasks</div>
+                <!-- Major Tom Queue (agent-level approvals) -->
+                <div id="agent-queue" class="queue-panel">
+                    <div class="agent-tasks-section">
+                        <h3>Agent-Level Tasks</h3>
+                        <p class="queue-description">Tasks being handled by Major Tom. Click to view details or add notes.</p>
+                        <div class="agent-tasks-list" id="agent-level-tasks-list">
+                            <div class="empty-state">No agent-level tasks</div>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Approval Modal (bucket selection) -->
+            <div class="modal" id="approval-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Approve Task</h2>
+                        <button class="modal-close" id="approval-modal-close">&times;</button>
+                    </div>
+                    <div class="approval-task-info">
+                        <div class="approval-task-title" id="approval-task-title"></div>
+                        <div class="approval-task-description" id="approval-task-description"></div>
+                        <div class="approval-task-meta" id="approval-task-meta"></div>
+                    </div>
+                    <form id="approval-form">
+                        <input type="hidden" id="approval-task-id">
+                        <div class="form-group">
+                            <label for="approval-bucket">Place in Bucket</label>
+                            <select id="approval-bucket">
+                                <option value="brainstorm">Brainstorm</option>
+                                <option value="planning">Planning</option>
+                                <option value="investigation">Investigation</option>
+                                <option value="cleanup">Cleanup</option>
+                                <option value="work_queue">Work Queue</option>
+                                <option value="active">Active</option>
+                            </select>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="approval-cancel">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Approve & Add to Queue</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Agent Task Detail Modal (for notes) -->
+            <div class="modal" id="agent-task-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Task Details</h2>
+                        <button class="modal-close" id="agent-task-modal-close">&times;</button>
+                    </div>
+                    <div class="agent-task-detail">
+                        <div class="detail-row">
+                            <span class="detail-label">Title:</span>
+                            <span class="detail-value" id="agent-task-title"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">From:</span>
+                            <span class="detail-value" id="agent-task-from"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Status:</span>
+                            <span class="detail-value" id="agent-task-status"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Description:</span>
+                            <div class="detail-value" id="agent-task-desc"></div>
+                        </div>
+                    </div>
+                    <form id="agent-note-form">
+                        <input type="hidden" id="agent-task-note-id">
+                        <div class="form-group">
+                            <label for="agent-task-note">Add Note</label>
+                            <textarea id="agent-task-note" rows="3" placeholder="Add a note about this task..."></textarea>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="agent-task-modal-cancel">Close</button>
+                            <button type="submit" class="btn btn-primary">Save Note</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </main>

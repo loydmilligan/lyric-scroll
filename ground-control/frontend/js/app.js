@@ -128,6 +128,37 @@ class GroundControl {
             if (e.target.id === 'task-modal') this.closeModal();
         });
 
+        // Queue tab switching
+        document.querySelectorAll('.queue-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.queue-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.queue-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                const queueId = tab.dataset.queue + '-queue';
+                document.getElementById(queueId).classList.add('active');
+            });
+        });
+
+        // Approval modal
+        document.getElementById('approval-modal-close')?.addEventListener('click', () => {
+            document.getElementById('approval-modal').classList.remove('active');
+        });
+        document.getElementById('approval-cancel')?.addEventListener('click', () => {
+            document.getElementById('approval-modal').classList.remove('active');
+        });
+        document.getElementById('approval-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitApproval();
+        });
+
+        // Agent task detail modal
+        document.getElementById('agent-task-modal-close')?.addEventListener('click', () => {
+            document.getElementById('agent-task-modal').classList.remove('active');
+        });
+        document.getElementById('agent-task-modal-cancel')?.addEventListener('click', () => {
+            document.getElementById('agent-task-modal').classList.remove('active');
+        });
+
         // History filter
         document.getElementById('history-project-filter').addEventListener('change', () => {
             this.renderHistory();
@@ -296,6 +327,19 @@ class GroundControl {
         }).join('');
     }
 
+    formatCompletedDate(dateStr) {
+        if (!dateStr) return 'Unknown';
+
+        const parts = dateStr.split(' ');
+        const date = parts[0];
+        const time = parts[1];
+
+        if (time) {
+            return `${date} • ${time}`;
+        }
+        return date;
+    }
+
     renderHistory() {
         const container = document.getElementById('history-list');
         const filter = document.getElementById('history-project-filter').value;
@@ -321,7 +365,7 @@ class GroundControl {
 
         container.innerHTML = tasks.map(task => `
             <div class="history-item">
-                <span class="history-date">${task.completed_date || 'Unknown'}</span>
+                <span class="history-date">${this.formatCompletedDate(task.completed_date)}</span>
                 <span class="history-subject">${this.escapeHtml(task.subject)}</span>
                 ${task.project ? `<span class="project-tag ${task.project}">${task.project}</span>` : ''}
             </div>
@@ -563,22 +607,48 @@ class GroundControl {
         badge.classList.toggle('hidden', count === 0);
     }
 
-    async approveTask(taskId) {
+    openApprovalModal(task) {
+        document.getElementById('approval-task-id').value = task.task_id;
+        document.getElementById('approval-task-title').textContent = task.title;
+        document.getElementById('approval-task-description').textContent = task.description || 'No description';
+        document.getElementById('approval-task-meta').textContent = `From: ${task.requesting_agent} • Priority: ${task.priority}`;
+
+        // Set default bucket from suggested_bucket if present
+        const bucketSelect = document.getElementById('approval-bucket');
+        if (task.suggested_bucket && bucketSelect.querySelector(`option[value="${task.suggested_bucket}"]`)) {
+            bucketSelect.value = task.suggested_bucket;
+        } else {
+            bucketSelect.value = 'work_queue';  // Default to work_queue
+        }
+
+        document.getElementById('approval-modal').classList.add('active');
+    }
+
+    async submitApproval() {
+        const taskId = document.getElementById('approval-task-id').value;
+        const bucket = document.getElementById('approval-bucket').value;
+
         try {
             const response = await fetch(`api/agent-tasks/${taskId}/approve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bucket })
             });
 
             if (response.ok) {
-                await this.loadAgentTasks();
-            } else {
-                const error = await response.json();
-                alert(error.error || 'Failed to approve task');
+                document.getElementById('approval-modal').classList.remove('active');
+                // The WebSocket will update the UI
             }
-        } catch (error) {
-            console.error('Error approving task:', error);
-            alert('Failed to approve task');
+        } catch (err) {
+            console.error('Failed to approve task:', err);
+        }
+    }
+
+    async approveTask(taskId) {
+        // Find the task and open the approval modal
+        const task = this.agentTasks.pending.find(t => t.task_id === taskId);
+        if (task) {
+            this.openApprovalModal(task);
         }
     }
 
