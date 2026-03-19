@@ -81,7 +81,31 @@ to: all                    # broadcast to all agents
 |-----------|-------|
 | Send to recipient | `agent-sync/lsa-to-{recipient}/{msg-id}` |
 | Intro broadcast | `agent-sync/intro/lsa` |
-| Receive | `agent-sync/#` (filtered for `-to-lsa/` or `intro/`) |
+| Receive | `agent-sync/#` (filtered for `-to-lsa/` or `intro/` or `feature/`) |
+
+### Handling Incoming Messages
+
+Messages arrive automatically via hook and appear as `[MQTT SYNC]` in your context.
+
+**Priority Order:**
+1. **`feature-update`** (JSON) - Implement IMMEDIATELY (unless doing P1 work)
+2. **`question` with `response: required`** - Sender is blocked, respond ASAP
+3. **`handoff`** - Accept context/work being passed to you
+4. **`intro`** - Welcome new agents, note their capabilities
+5. **`update`** / **`ack`** - Informational, no action needed
+
+**When You See `[MQTT SYNC]`:**
+1. Read the message(s) carefully
+2. Identify the type and priority
+3. Act on high-priority messages before continuing other work
+4. Send an `ack` if `response: required`
+5. Move processed messages from inbox to archive
+
+**Feature Updates** (JSON files like `feature-*.json`):
+1. Read the `implementation.instructions` field
+2. Make the required changes
+3. Test if `test_command` is provided
+4. Send `ack` to ASA confirming implementation
 
 ---
 

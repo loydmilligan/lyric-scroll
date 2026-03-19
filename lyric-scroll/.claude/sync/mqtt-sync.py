@@ -5,6 +5,7 @@ Usage:
     ./mqtt-sync.py send [file]    Send message(s) from outbox
     ./mqtt-sync.py receive        Receive messages to inbox
     ./mqtt-sync.py status         Check connection status
+    ./mqtt-sync.py task <title> [--level=agent] [--category=action]  Submit task proposal
 
 Multi-recipient Support:
     Messages can specify multiple recipients in the YAML frontmatter:
@@ -53,6 +54,7 @@ PASS = ENV.get("MQTT_PASS", "")
 
 STATUS_TOPIC = f"agent-sync/{AGENT_ID}/status"
 INTRO_TOPIC = f"agent-sync/intro/{AGENT_ID}"
+TASKS_TOPIC = "agent-sync/tasks/pending"
 
 
 def get_client():
@@ -272,6 +274,47 @@ def receive_messages():
         print("No new messages.")
 
 
+def submit_task(title: str, description: str = "", level: str = "agent", category: str = "action"):
+    """Submit a task proposal to the agent network."""
+    today = time.strftime("%Y-%m-%d")
+    existing = list(OUTBOX.glob(f"{today}-*.md")) + list(ARCHIVE.glob(f"{today}-*.md"))
+    seq = len(existing) + 1
+    task_id = f"{today}-{seq:03d}-{AGENT_ID}"
+
+    task = {
+        "task_id": task_id,
+        "title": title,
+        "description": description,
+        "requesting_agent": AGENT_ID,
+        "target": "major-tom",
+        "approval_level": level,
+        "category": category,
+        "priority": "P3",
+        "status": "pending",
+        "metadata": {
+            "submitted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        }
+    }
+
+    payload = json.dumps(task, indent=2)
+
+    try:
+        client = get_client()
+        client.loop_start()
+        result = client.publish(TASKS_TOPIC, payload, retain=True, qos=1)
+        result.wait_for_publish(timeout=5)
+        client.loop_stop()
+        client.disconnect()
+        print(f"Task submitted: {task_id}")
+        print(f"  Title: {title}")
+        print(f"  Level: {level}")
+        print(f"  Category: {category}")
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to submit task: {e}")
+        return False
+
+
 def check_status():
     """Test MQTT connection."""
     print(f"Connecting to {BROKER}:{PORT} as {USER}...")
@@ -311,6 +354,25 @@ def main():
         receive_messages()
     elif cmd == "status":
         check_status()
+    elif cmd == "task":
+        if len(sys.argv) < 3:
+            print("Usage: mqtt-sync.py task <title> [--level=agent] [--category=action]")
+            sys.exit(1)
+        title_parts = []
+        level = "agent"
+        category = "action"
+        for arg in sys.argv[2:]:
+            if arg.startswith("--level="):
+                level = arg.split("=", 1)[1]
+            elif arg.startswith("--category="):
+                category = arg.split("=", 1)[1]
+            else:
+                title_parts.append(arg)
+        title = " ".join(title_parts).strip("\"'")
+        if not title:
+            print("ERROR: Task title required")
+            sys.exit(1)
+        submit_task(title, level=level, category=category)
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)

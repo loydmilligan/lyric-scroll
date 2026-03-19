@@ -238,7 +238,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.5.20 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.5.21 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -361,6 +361,18 @@ class LyricScroll {
     handlePosition(data) {
         const positionMs = data.position_ms;
         this.state = data.state;
+
+        // Calculate current estimated position
+        const elapsed = performance.now() - this.lastPositionTime;
+        const estimatedPosition = this.lastPositionMs + elapsed;
+
+        // Don't accept position updates that would jump backwards more than 5 seconds
+        // (unless we're near the start of the song or position is actually 0)
+        const jumpBackMs = estimatedPosition - positionMs;
+        if (jumpBackMs > 5000 && positionMs > 2000 && this.lastPositionMs > 5000) {
+            console.warn(`Ignoring WS position - would jump back ${(jumpBackMs/1000).toFixed(1)}s`);
+            return;
+        }
 
         // Record position and local time for interpolation
         this.lastPositionMs = positionMs;
