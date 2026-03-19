@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.4.0
+
+### AI Triage Integration
+
+- **NEW**: OpenRouter AI integration for intelligent issue triage
+  - Analyzes log issues to determine actionability
+  - Creates tasks for Major Tom via MQTT
+  - Configurable triage interval (default: 60 minutes)
+  - Manual triage trigger via `/api/triage` endpoint
+
+- **NEW**: MQTT task publishing to Ground Control
+  - Publishes tasks to `agent-sync/tasks/pending`
+  - Supports approval levels: `auto`, `agent`, `human`
+  - Task categories: `investigation`, `action`, `notification`, `escalation`
+
+### New Config Options
+
+- `ai_triage_enabled`: Enable/disable AI triage (default: false)
+- `openrouter_api_key`: API key for OpenRouter
+- `openrouter_model`: Model to use (default: `anthropic/claude-3-haiku`)
+- `triage_interval`: Minutes between triage runs (default: 60)
+- `mqtt_broker`: MQTT broker hostname
+- `mqtt_port`: MQTT broker port (default: 1883)
+- `mqtt_user`: MQTT username
+- `mqtt_password`: MQTT password
+
+### Issue Enhancements
+
+- Added AI triage fields to issues:
+  - `task_id`: ID of created task (if any)
+  - `ai_triaged_at`: Timestamp of last AI analysis
+  - `ai_actionable`: Whether AI determined issue is actionable
+  - `ai_suggested_action`: AI-suggested action to take
+
+### API Endpoints
+
+- `POST /api/triage`: Manually trigger AI triage
+- `GET /api/triage/status`: Get AI triage status
+
 ## 0.3.2
 
 - Strip ANSI color codes from Supervisor API log output

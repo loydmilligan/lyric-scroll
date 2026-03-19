@@ -15,10 +15,13 @@ from hashlib import md5
 from pathlib import Path
 
 import aiohttp
+from aiohttp import web
+
+from .ai_triage import AITriageEngine
+from .mqtt_tasks import MQTTTaskPublisher
 
 # Pattern to strip ANSI color codes from log lines
 ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*m')
-from aiohttp import web
 
 # Configure logging
 logging.basicConfig(
@@ -88,6 +91,11 @@ class Issue:
         self.status = "open"
         self.priority = self._calculate_priority()
         self.category = self._categorize()
+        # AI triage fields
+        self.task_id: str | None = None
+        self.ai_triaged_at: str | None = None
+        self.ai_actionable: bool | None = None
+        self.ai_suggested_action: str | None = None
 
     def _calculate_priority(self) -> str:
         """Calculate priority based on severity and patterns."""
@@ -143,8 +151,34 @@ class Issue:
             "first_seen": self.first_seen,
             "last_seen": self.last_seen,
             "sample_entries": self.sample_entries,
-            "status": self.status
+            "status": self.status,
+            "task_id": self.task_id,
+            "ai_triaged_at": self.ai_triaged_at,
+            "ai_actionable": self.ai_actionable,
+            "ai_suggested_action": self.ai_suggested_action,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Issue":
+        """Create Issue from dictionary (for state restoration)."""
+        # Create a minimal issue and populate fields
+        issue = cls.__new__(cls)
+        issue.id = data.get("id", "")
+        issue.severity = data.get("severity", "")
+        issue.component = data.get("component", "")
+        issue.message = data.get("message", "")
+        issue.first_seen = data.get("first_seen", "")
+        issue.last_seen = data.get("last_seen", "")
+        issue.count = data.get("count", 1)
+        issue.sample_entries = data.get("sample_entries", [])
+        issue.status = data.get("status", "open")
+        issue.priority = data.get("priority", PRIORITY_LOW)
+        issue.category = data.get("category", "other")
+        issue.task_id = data.get("task_id")
+        issue.ai_triaged_at = data.get("ai_triaged_at")
+        issue.ai_actionable = data.get("ai_actionable")
+        issue.ai_suggested_action = data.get("ai_suggested_action")
+        return issue
 
 
 class LogWatcher:
@@ -329,8 +363,9 @@ class LogWatcher:
 class WebServer:
     """Web UI for viewing triaged issues."""
 
-    def __init__(self, watcher: LogWatcher):
+    def __init__(self, watcher: LogWatcher, ai_engine: AITriageEngine | None = None):
         self.watcher = watcher
+        self.ai_engine = ai_engine
         self.app = web.Application()
         self.setup_routes()
 
@@ -340,6 +375,8 @@ class WebServer:
         self.app.router.add_post("/api/issues/{id}/dismiss", self.handle_dismiss)
         self.app.router.add_post("/api/refresh", self.handle_refresh)
         self.app.router.add_get("/api/health", self.handle_health)
+        self.app.router.add_post("/api/triage", self.handle_triage)
+        self.app.router.add_get("/api/triage/status", self.handle_triage_status)
 
     async def handle_index(self, request):
         """Serve main UI."""
@@ -461,6 +498,47 @@ class WebServer:
         """Health check."""
         return web.json_response({"status": "ok"})
 
+    async def handle_triage(self, request):
+        """API: Manually trigger AI triage."""
+        if not self.ai_engine:
+            return web.json_response(
+                {"error": "AI triage not configured"},
+                status=400
+            )
+
+        # Get untriaged open issues
+        untriaged = [
+            issue for issue in self.watcher.issues.values()
+            if issue.status == "open" and issue.task_id is None
+        ]
+
+        if not untriaged:
+            return web.json_response({"status": "no_issues", "triaged": 0})
+
+        results = await self.ai_engine.triage(untriaged)
+        self.watcher._write_output()  # Update output file
+
+        return web.json_response({
+            "status": "completed",
+            "triaged": len(results),
+            "tasks_created": sum(1 for r in results if r.get("create_task")),
+        })
+
+    async def handle_triage_status(self, request):
+        """API: Get AI triage status."""
+        if not self.ai_engine:
+            return web.json_response({
+                "enabled": False,
+                "last_run": None,
+                "tasks_created": 0,
+            })
+
+        return web.json_response({
+            "enabled": True,
+            "last_run": self.ai_engine.last_triage_at,
+            "tasks_created": len(self.ai_engine.created_tasks),
+        })
+
 
 async def main():
     """Main entry point."""
@@ -474,8 +552,38 @@ async def main():
         severity_threshold=options.get("severity_threshold", "warning")
     )
 
+    # Initialize AI triage if configured
+    ai_engine = None
+    mqtt_publisher = None
+
+    if options.get("ai_triage_enabled") and options.get("openrouter_api_key"):
+        # Initialize MQTT publisher
+        mqtt_broker = options.get("mqtt_broker", "")
+        if mqtt_broker:
+            mqtt_publisher = MQTTTaskPublisher(
+                broker=mqtt_broker,
+                port=options.get("mqtt_port", 1883),
+                username=options.get("mqtt_user", ""),
+                password=options.get("mqtt_password", ""),
+            )
+            if mqtt_publisher.connect():
+                logger.info("MQTT task publisher connected")
+            else:
+                logger.warning("MQTT connection failed, tasks will not be published")
+                mqtt_publisher = None
+
+        # Initialize AI triage engine
+        ai_engine = AITriageEngine(
+            api_key=options["openrouter_api_key"],
+            model=options.get("openrouter_model", "anthropic/claude-3-haiku"),
+            mqtt_publisher=mqtt_publisher,
+        )
+        logger.info(f"AI triage enabled with model: {options.get('openrouter_model', 'anthropic/claude-3-haiku')}")
+    else:
+        logger.info("AI triage disabled (missing api key or not enabled)")
+
     # Initialize web server
-    server = WebServer(watcher)
+    server = WebServer(watcher, ai_engine=ai_engine)
 
     # Do initial log check
     await watcher.check_logs()
@@ -488,6 +596,30 @@ async def main():
             await watcher.check_logs()
 
     asyncio.create_task(check_loop())
+
+    # Start periodic AI triage if enabled
+    async def triage_loop():
+        if not ai_engine:
+            return
+        interval_minutes = options.get("triage_interval", 60)
+        interval_seconds = interval_minutes * 60
+        logger.info(f"AI triage loop starting (interval: {interval_minutes} minutes)")
+        while True:
+            await asyncio.sleep(interval_seconds)
+            # Get untriaged open issues
+            untriaged = [
+                issue for issue in watcher.issues.values()
+                if issue.status == "open" and issue.task_id is None
+            ]
+            if untriaged:
+                logger.info(f"Running AI triage on {len(untriaged)} untriaged issues")
+                await ai_engine.triage(untriaged)
+                watcher._write_output()  # Update output file with AI fields
+            else:
+                logger.debug("No untriaged issues, skipping AI triage")
+
+    if ai_engine:
+        asyncio.create_task(triage_loop())
 
     # Start web server
     runner = web.AppRunner(server.app)
@@ -504,6 +636,10 @@ async def main():
             await asyncio.sleep(3600)
     finally:
         await watcher.close()
+        if ai_engine:
+            await ai_engine.close()
+        if mqtt_publisher:
+            mqtt_publisher.disconnect()
 
 
 if __name__ == "__main__":

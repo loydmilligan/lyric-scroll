@@ -1,5 +1,5 @@
 name: Lumberjacker
-version: "0.3.2"
+version: "0.4.0"
 slug: lumberjacker
 description: HA log watcher that triages and prioritizes log issues
 url: https://github.com/loydmilligan/ha-addons
@@ -26,9 +26,25 @@ auth_api: true
 options:
   check_interval: 60
   severity_threshold: "warning"
+  ai_triage_enabled: false
+  openrouter_api_key: ""
+  openrouter_model: "anthropic/claude-3-haiku"
+  triage_interval: 60
+  mqtt_broker: ""
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
 schema:
   check_interval: int
   severity_threshold: list(error|warning|info)?
+  ai_triage_enabled: bool?
+  openrouter_api_key: str?
+  openrouter_model: str?
+  triage_interval: int?
+  mqtt_broker: str?
+  mqtt_port: int?
+  mqtt_user: str?
+  mqtt_password: password?
 map:
   - config:ro
   - share:rw
