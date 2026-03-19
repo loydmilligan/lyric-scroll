@@ -389,6 +389,7 @@ class WebServer:
         self.app.router.add_get("/api/health", self.handle_health)
         self.app.router.add_post("/api/triage", self.handle_triage)
         self.app.router.add_get("/api/triage/status", self.handle_triage_status)
+        self.app.router.add_post("/api/test-issues", self.handle_test_issues)
 
     async def handle_index(self, request):
         """Serve main UI."""
@@ -429,6 +430,8 @@ class WebServer:
                 .triage-btn { background: #4caf50; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; margin-left: 0.5rem; }
                 .triage-btn:hover { background: #388e3c; }
                 .triage-btn:disabled { background: #555; cursor: not-allowed; }
+                .test-btn { background: #ff9800; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; margin-left: 0.5rem; }
+                .test-btn:hover { background: #f57c00; }
                 .status { color: #888; font-size: 0.8rem; margin-bottom: 1rem; }
             </style>
         </head>
@@ -437,6 +440,7 @@ class WebServer:
             <p class="subtitle">HA Log Triage System (via Supervisor API)</p>
             <button class="refresh-btn" onclick="refresh()">Refresh Now</button>
             <button class="triage-btn" id="triageBtn" onclick="runTriage()" style="display:none;">Run AI Triage</button>
+            <button class="test-btn" onclick="generateTestIssues()">Generate Test Issues</button>
             <div class="status" id="status"></div>
             <div class="stats" id="stats"></div>
             <div class="issues" id="issues"></div>
@@ -523,6 +527,18 @@ class WebServer:
                     }
                 }
 
+                async function generateTestIssues() {
+                    document.getElementById('status').textContent = 'Generating test issues...';
+                    try {
+                        const res = await fetch('api/test-issues', {method: 'POST'});
+                        const data = await res.json();
+                        document.getElementById('status').textContent = `Generated ${data.count} test issues`;
+                        await loadIssues();
+                    } catch (err) {
+                        document.getElementById('status').textContent = `Error: ${err.message}`;
+                    }
+                }
+
                 loadIssues();
                 checkTriageStatus();
                 setInterval(loadIssues, 30000);
@@ -593,6 +609,59 @@ class WebServer:
             "enabled": True,
             "last_run": self.ai_engine.last_triage_at,
             "tasks_created": len(self.ai_engine.created_tasks),
+        })
+
+    async def handle_test_issues(self, request):
+        """API: Generate test issues for testing triage system."""
+        test_cases = [
+            {
+                "severity": "ERROR",
+                "component": "hue",
+                "message": "Unable to connect to bridge at 192.168.1.100",
+            },
+            {
+                "severity": "WARNING",
+                "component": "zwave_js",
+                "message": "Node 15 is not responding to commands",
+            },
+            {
+                "severity": "ERROR",
+                "component": "mqtt",
+                "message": "Connection lost to broker, reconnecting...",
+            },
+            {
+                "severity": "WARNING",
+                "component": "automation.morning_routine",
+                "message": "Automation triggered but condition failed",
+            },
+            {
+                "severity": "ERROR",
+                "component": "homeassistant.core",
+                "message": "Error setting up integration: timeout connecting to API",
+            },
+        ]
+
+        timestamp = datetime.now().isoformat()
+        created = 0
+
+        for test_case in test_cases:
+            issue = Issue(
+                severity=test_case["severity"],
+                component=test_case["component"],
+                message=test_case["message"],
+                timestamp=timestamp,
+            )
+            # Add to watcher's issue list
+            key = self.watcher._issue_key(issue.component, issue.message)
+            self.watcher.issues[key] = issue
+            created += 1
+
+        # Write to output file
+        self.watcher._write_output()
+
+        return web.json_response({
+            "status": "created",
+            "count": created,
         })
 
 

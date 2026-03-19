@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.5
+
+- Added "Generate Test Issues" button for testing AI triage
+  - Creates 5 realistic fake issues (hue, zwave, mqtt, automation, core)
+  - Issues are untriaged so they get picked up by AI triage
+
 ## 0.4.4
 
 - Issues now persist across addon restarts
