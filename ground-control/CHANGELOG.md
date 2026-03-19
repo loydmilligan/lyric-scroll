@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.13
+
+- Add MQTT configuration options (mqtt_broker, mqtt_port, mqtt_user, mqtt_pass)
+- Fix "Not authorized" error by reading credentials from addon config
+- Default broker changed to "core-mosquitto" for HA addon installs
+
 ## 0.1.12
 
 - Add Agent Tasks tab for MQTT-based task approvals

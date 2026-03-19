@@ -11,10 +11,10 @@ import paho.mqtt.client as mqtt
 
 logger = logging.getLogger(__name__)
 
-# MQTT Configuration
-MQTT_BROKER = os.environ.get("MQTT_BROKER", "192.168.4.158")
+# MQTT Configuration (from addon options via environment)
+MQTT_BROKER = os.environ.get("MQTT_BROKER", "core-mosquitto")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
-MQTT_USER = os.environ.get("MQTT_USER", "gc")
+MQTT_USER = os.environ.get("MQTT_USER", "")
 MQTT_PASS = os.environ.get("MQTT_PASS", "")
 
 # Topics

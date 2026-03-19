@@ -1,5 +1,5 @@
 name: Ground Control
-version: "0.1.12"
+version: "0.1.13"
 slug: ground_control
 description: Task and project management for Home Assistant
 url: https://github.com/loydmilligan/ha-addons
@@ -24,7 +24,15 @@ hassio_api: true
 auth_api: true
 options:
   tasks_path: ""
+  mqtt_broker: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_pass: ""
 schema:
   tasks_path: str
+  mqtt_broker: str
+  mqtt_port: int
+  mqtt_user: str
+  mqtt_pass: str
 map:
   - config:rw
