@@ -105,55 +105,71 @@ class AITriageEngine:
 
         await self._ensure_session()
 
-        # Build the prompt with issue data
-        issues_data = []
-        for issue in issues:
-            issues_data.append({
-                "issue_id": issue.id,
-                "severity": issue.severity,
-                "category": issue.category,
-                "component": issue.component,
-                "message": issue.message[:500],  # Truncate long messages
-                "count": issue.count,
-                "first_seen": issue.first_seen,
-                "last_seen": issue.last_seen,
-                "sample_entries": issue.sample_entries[:3],  # Limit samples
-            })
+        # Process issues in batches to avoid timeout
+        BATCH_SIZE = 10
+        all_results = []
+        total_batches = (len(issues) + BATCH_SIZE - 1) // BATCH_SIZE
 
-        user_prompt = json.dumps({"issues": issues_data}, indent=2)
+        for batch_idx in range(0, len(issues), BATCH_SIZE):
+            batch_num = (batch_idx // BATCH_SIZE) + 1
+            batch = issues[batch_idx:batch_idx + BATCH_SIZE]
+            batch_size = len(batch)
 
-        # Call OpenRouter API
-        try:
-            response = await self._call_openrouter(user_prompt)
-            if not response:
-                return []
+            logger.info(f"Processing batch {batch_num}/{total_batches} ({batch_size} issues)")
 
-            results = response.get("triage_results", [])
-            self.last_triage_at = datetime.now().isoformat()
+            # Build the prompt with issue data for this batch
+            issues_data = []
+            for issue in batch:
+                issues_data.append({
+                    "issue_id": issue.id,
+                    "severity": issue.severity,
+                    "category": issue.category,
+                    "component": issue.component,
+                    "message": issue.message[:500],  # Truncate long messages
+                    "count": issue.count,
+                    "first_seen": issue.first_seen,
+                    "last_seen": issue.last_seen,
+                    "sample_entries": issue.sample_entries[:3],  # Limit samples
+                })
 
-            # Process results and create tasks
-            for result in results:
-                issue_id = result.get("issue_id")
-                issue = next((i for i in issues if i.id == issue_id), None)
-                if not issue:
+            user_prompt = json.dumps({"issues": issues_data}, indent=2)
+
+            # Call OpenRouter API for this batch
+            try:
+                response = await self._call_openrouter(user_prompt)
+                if not response:
+                    logger.warning(f"No response for batch {batch_num}/{total_batches}, continuing")
                     continue
 
-                # Update issue with AI fields
-                issue.ai_triaged_at = self.last_triage_at
-                issue.ai_actionable = result.get("actionable", False)
-                issue.ai_suggested_action = result.get("suggested_action", "")
+                results = response.get("triage_results", [])
+                self.last_triage_at = datetime.now().isoformat()
 
-                # Create task if needed
-                if result.get("create_task") and issue.task_id is None:
-                    await self._create_task(issue, result)
+                # Process results and create tasks
+                for result in results:
+                    issue_id = result.get("issue_id")
+                    issue = next((i for i in batch if i.id == issue_id), None)
+                    if not issue:
+                        continue
 
-            logger.info(f"Triaged {len(issues)} issues, {len(results)} results")
-            return results
+                    # Update issue with AI fields
+                    issue.ai_triaged_at = self.last_triage_at
+                    issue.ai_actionable = result.get("actionable", False)
+                    issue.ai_suggested_action = result.get("suggested_action", "")
 
-        except Exception as e:
-            logger.error(f"AI triage failed: {type(e).__name__}: {e}")
-            logger.exception("AI triage traceback:")
-            return []
+                    # Create task if needed
+                    if result.get("create_task") and issue.task_id is None:
+                        await self._create_task(issue, result)
+
+                all_results.extend(results)
+                logger.info(f"Batch {batch_num}/{total_batches} complete: {len(results)} results")
+
+            except Exception as e:
+                logger.error(f"Batch {batch_num}/{total_batches} failed: {type(e).__name__}: {e}")
+                logger.exception("Batch triage traceback:")
+                continue
+
+        logger.info(f"Triaged {len(issues)} issues in {total_batches} batches, {len(all_results)} total results")
+        return all_results
 
     async def _call_openrouter(self, user_prompt: str) -> Optional[dict]:
         """Call OpenRouter API with the triage prompt."""
@@ -179,7 +195,7 @@ class AITriageEngine:
                 OPENROUTER_URL,
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=60),
+                timeout=aiohttp.ClientTimeout(total=120),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()

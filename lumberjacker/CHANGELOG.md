@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.6
+
+- Fix AI triage timeout when processing many issues
+  - Increased API timeout from 60s to 120s
+  - Process issues in batches of 10 (prevents timeout on large sets)
+  - Continue processing remaining batches if one fails
+- Added batch progress logging ("Processing batch 1/4...")
+
 ## 0.4.5
 
 - Added "Generate Test Issues" button for testing AI triage
