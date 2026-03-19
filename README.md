@@ -8,6 +8,7 @@ Custom Home Assistant addons and integrations for music visualization and task m
 |-------|---------|-------------|
 | [Lyric Scroll](lyric-scroll/) | v0.5.16 | Synchronized, scrolling karaoke-style lyrics for Music Assistant. Supports casting to Chromecast/Nest Hub. |
 | [Ground Control](ground-control/) | v0.1.6 | Task and project management Kanban board, synced with `.tasks/` markdown files. |
+| [Lumberjacker](lumberjacker/) | v0.1.0 | HA log watcher that triages and prioritizes log issues for action. |
 
 ## Custom Integration
 

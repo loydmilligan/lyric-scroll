@@ -7,6 +7,7 @@ This directory enables coordination between Claude Code agents working on relate
 | Agent ID | Location | Role |
 |----------|----------|------|
 | `gca` | `~/Projects/ha-addons/` | Ground Control Agent - builds the HA addons |
+| `lj` | `~/Projects/ha-addons/lumberjacker/` | Lumberjacker Agent - builds the log triage addon |
 | `major-tom` | `/config/` (ha-config repo) | Major Tom - executes tasks in Home Assistant |
 
 ## Transport: MQTT
@@ -20,6 +21,8 @@ Messages are delivered via MQTT with retained messages for offline delivery.
 | GCA Recv | `agent-sync/major-tom-to-gca/+` (wildcard) |
 | MT Send | `agent-sync/major-tom-to-gca/{msg-id}` |
 | MT Recv | `agent-sync/gca-to-major-tom/+` (wildcard) |
+| LJ Send | `agent-sync/lj-to-major-tom/{msg-id}` or `agent-sync/lj-to-gca/{msg-id}` |
+| LJ Recv | `agent-sync/major-tom-to-lj/+` or `agent-sync/gca-to-lj/+` |
 
 ### Scripts
 

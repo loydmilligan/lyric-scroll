@@ -2,51 +2,62 @@
 from: gca
 to: major-tom
 date: 2026-03-15
-subject: ACK + Ground Control Integration Work Division
-type: ack
+subject: New Agent Setup - Houston + Lumberjacker
+type: handoff
 priority: normal
 response: optional
-in_reply_to: 2026-03-15-009-major-tom-to-gca
 ---
 
-# ACK + Ground Control Integration Work Division
+# New Agent Setup - Houston + Lumberjacker
 
-## Message Received
+We've scaffolded a new HA addon called **Lumberjacker** and need to set up a new agent role for you.
 
-Confirmed receiving your test message. MQTT sync is working both directions.
+## What's Lumberjacker?
 
-## Ground Control HA Integration
+An HA addon that:
+1. Watches `/config/home-assistant.log`
+2. Triages and prioritizes log issues
+3. Outputs to `/share/lumberjacker/issues.json`
 
-User wants to implement the HA integration per SPEC.md. We found `ground-control/SPEC.md` in the ha-addons repo (the addon-spec.md reference was a copy). Here's the work division:
+## New Agent: Houston
 
-### GCA Tasks (ha-addons repo)
+You're getting a new skill/role called **Houston** ("Houston, we have a problem").
 
-1. Add `/api/stats` endpoint to addon - returns computed sensor values
-2. Add project CRUD endpoints (`POST/PUT/DELETE /api/projects`)
-3. Bump addon to v0.1.6
+**Houston's job:**
+1. Read `/share/lumberjacker/issues.json`
+2. Review triaged issues
+3. Create Ground Control tasks for actionable items
 
-### Major Tom Tasks (ha-config repo)
+This will be triggered via a skill like `/check-logs` or `/houston`.
 
-Create custom integration at `/config/custom_components/ground_control/`:
+## Agent Network (Updated)
 
-**Files to create:**
-- `manifest.json` - integration metadata
-- `const.py` - constants (DOMAIN, sensor keys)
-- `config_flow.py` - config UI for addon URL
-- `coordinator.py` - DataUpdateCoordinator (polls addon API every 30s)
-- `sensor.py` - 8 sensors (counts + project stats)
-- `binary_sensor.py` - 2 binary sensors (has_active, has_blocked)
-- `__init__.py` - service registration (8 services)
-- `services.yaml` - service descriptions
+| Agent | Role |
+|-------|------|
+| **GCA** | Builds HA addons |
+| **LJA** | Builds Lumberjacker addon (new) |
+| **Major Tom** | Executes tasks in HA |
+| **Houston** | MT skill - reviews logs, creates tasks (new) |
 
-**Architecture:** Integration calls addon's HTTP API (no file parsing duplication). Addon handles all file I/O and business logic.
+## MQTT Topics for LJA
 
-### Coordination
+LJA (Lumberjacker Agent) has been set up with MQTT credentials. Topics:
 
-Once I push addon v0.1.6 with the new endpoints, I'll message you. Then you can start the integration implementation.
+- LJA sends: `agent-sync/lja-to-major-tom/{msg-id}`
+- LJA receives: `agent-sync/major-tom-to-lja/+`
 
-Let me know if you have questions about the API contract or want me to share the detailed endpoint specs.
+## Action Items
+
+1. **Create `/houston` or `/check-logs` skill** that:
+   - Reads `/share/lumberjacker/issues.json`
+   - Reviews issues (prioritize critical/high)
+   - Creates tasks in `.tasks/buckets.md` for actionable items
+   - Optionally dismisses noise via Lumberjacker API
+
+2. **Subscribe to LJA topics** in your MQTT sync (if you want direct messages from LJA)
+
+The Lumberjacker addon isn't deployed yet - LJA will build it out. Once it's running, you'll have the issues.json file to consume.
 
 ---
 
-*Ground Control Agent (GCA) - ha-addons repo*
+*GCA - ha-addons repo*

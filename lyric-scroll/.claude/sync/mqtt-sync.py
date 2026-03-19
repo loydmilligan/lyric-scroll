@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MQTT-based agent sync for GCA (Ground Control Agent).
+"""MQTT-based agent sync for LSA (Lyric Scroll Agent).
 
 Usage:
     ./mqtt-sync.py send [file]    Send message(s) from outbox
@@ -9,8 +9,8 @@ Usage:
 Multi-recipient Support:
     Messages can specify multiple recipients in the YAML frontmatter:
     - to: major-tom              (single recipient)
-    - to: major-tom, lja         (comma-separated list)
-    - to: [major-tom, lja]       (YAML array)
+    - to: major-tom, gca         (comma-separated list)
+    - to: [major-tom, gca]       (YAML array)
     - to: all                    (broadcast to all known agents)
 """
 
@@ -30,8 +30,8 @@ INBOX = SCRIPT_DIR / "inbox"
 ARCHIVE = SCRIPT_DIR / "archive"
 
 # Known agents for "all" broadcast
-KNOWN_AGENTS = ["major-tom", "lja", "houston", "lsa"]
-AGENT_ID = "gca"
+KNOWN_AGENTS = ["major-tom", "gca", "houston", "lja"]
+AGENT_ID = "lsa"
 
 # Load config from .env
 def load_env():
@@ -48,7 +48,7 @@ def load_env():
 ENV = load_env()
 BROKER = ENV.get("MQTT_BROKER", "192.168.4.158")
 PORT = int(ENV.get("MQTT_PORT", "1883"))
-USER = ENV.get("MQTT_USER", "gca")
+USER = ENV.get("MQTT_USER", "lsa")
 PASS = ENV.get("MQTT_PASS", "")
 
 STATUS_TOPIC = f"agent-sync/{AGENT_ID}/status"
@@ -82,8 +82,8 @@ def parse_recipients(content: str) -> list[str]:
 
     Supports:
     - to: major-tom              (single)
-    - to: major-tom, lja         (comma-separated)
-    - to: [major-tom, lja]       (YAML array)
+    - to: major-tom, gca         (comma-separated)
+    - to: [major-tom, gca]       (YAML array)
     - to: all                    (broadcast)
     """
     fm = parse_frontmatter(content)
@@ -179,9 +179,9 @@ def send_all():
 
 
 def receive_messages():
-    """Receive messages from any agent addressed to GCA, plus intro broadcasts."""
+    """Receive messages from any agent addressed to LJA, plus intro broadcasts."""
     # Subscribe to all agent-sync messages and filter in callback
-    # (MQTT + wildcard must be entire topic level, can't do "+-to-gca")
+    # (MQTT + wildcard must be entire topic level, can't do "+-to-lja")
     recv_pattern = "agent-sync/#"
 
     received = []
@@ -209,7 +209,6 @@ def receive_messages():
 
             dest = INBOX / filename
             archived = ARCHIVE / filename
-            # Check both inbox and archive to avoid re-downloading
             if not dest.exists() and not archived.exists():
                 dest.write_text(content)
                 msg_type = "INTRO" if is_intro else "message"
@@ -218,7 +217,6 @@ def receive_messages():
             else:
                 print(f"Already have: {filename}")
         except json.JSONDecodeError:
-            # Raw message, not JSON
             filename = f"raw-{int(time.time())}.md"
             dest = INBOX / filename
             dest.write_text(msg.payload.decode())
@@ -230,7 +228,6 @@ def receive_messages():
     client.subscribe(recv_pattern)
     print(f"Subscribed: {recv_pattern}")
 
-    # Wait briefly for retained messages
     client.loop_start()
     time.sleep(2)
     client.loop_stop()
@@ -247,7 +244,7 @@ def check_status():
     try:
         client = get_client()
         client.loop_start()
-        status_msg = f"GCA online {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}"
+        status_msg = f"LSA online {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}"
         result = client.publish(STATUS_TOPIC, status_msg, retain=True)
         result.wait_for_publish(timeout=5)
         client.loop_stop()

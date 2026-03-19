@@ -5,10 +5,18 @@ Usage:
     ./mqtt-sync.py send [file]    Send message(s) from outbox
     ./mqtt-sync.py receive        Receive messages to inbox
     ./mqtt-sync.py status         Check connection status
+
+Multi-recipient Support:
+    Messages can specify multiple recipients in the YAML frontmatter:
+    - to: major-tom              (single recipient)
+    - to: major-tom, gca         (comma-separated list)
+    - to: [major-tom, gca]       (YAML array)
+    - to: all                    (broadcast to all known agents)
 """
 
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -20,6 +28,10 @@ SCRIPT_DIR = Path(__file__).parent
 OUTBOX = SCRIPT_DIR / "outbox"
 INBOX = SCRIPT_DIR / "inbox"
 ARCHIVE = SCRIPT_DIR / "archive"
+
+# Known agents for "all" broadcast
+KNOWN_AGENTS = ["major-tom", "gca", "houston", "lsa"]
+AGENT_ID = "lja"
 
 # Load config from .env
 def load_env():
@@ -39,23 +51,69 @@ PORT = int(ENV.get("MQTT_PORT", "1883"))
 USER = ENV.get("MQTT_USER", "lja")
 PASS = ENV.get("MQTT_PASS", "")
 
-# Topics - LJA can send to major-tom, gca, or houston
-# Message filename determines recipient: lja-to-major-tom, lja-to-gca, lja-to-houston
-SEND_TOPIC_BASE = "agent-sync/lja"
-RECV_TOPIC_BASE = "agent-sync"
-STATUS_TOPIC = "agent-sync/lja/status"
+STATUS_TOPIC = f"agent-sync/{AGENT_ID}/status"
+INTRO_TOPIC = f"agent-sync/intro/{AGENT_ID}"
 
 
 def get_client():
     """Create and connect MQTT client."""
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="lja-sync", protocol=mqtt.MQTTv311)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"{AGENT_ID}-sync", protocol=mqtt.MQTTv311)
     client.username_pw_set(USER, PASS)
     client.connect(BROKER, PORT, keepalive=60)
     return client
 
 
+def parse_frontmatter(content: str) -> dict:
+    """Parse YAML frontmatter from message content."""
+    match = re.match(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
+    if not match:
+        return {}
+
+    frontmatter = {}
+    for line in match.group(1).splitlines():
+        if ':' in line:
+            key, value = line.split(':', 1)
+            frontmatter[key.strip()] = value.strip()
+    return frontmatter
+
+
+def parse_recipients(content: str) -> list[str]:
+    """Parse recipient(s) from message frontmatter.
+
+    Supports:
+    - to: major-tom              (single)
+    - to: major-tom, gca         (comma-separated)
+    - to: [major-tom, gca]       (YAML array)
+    - to: all                    (broadcast)
+    """
+    fm = parse_frontmatter(content)
+    to_value = fm.get('to', 'major-tom')
+
+    # Handle "all" keyword
+    if to_value.lower() == "all":
+        return KNOWN_AGENTS
+
+    # Handle YAML array: [a, b, c]
+    if to_value.startswith("[") and to_value.endswith("]"):
+        items = to_value[1:-1].split(",")
+        return [item.strip().strip("'\"") for item in items if item.strip()]
+
+    # Handle comma-separated: a, b, c
+    if "," in to_value:
+        return [item.strip() for item in to_value.split(",") if item.strip()]
+
+    # Single recipient
+    return [to_value]
+
+
+def is_intro_message(content: str) -> bool:
+    """Check if message is an agent introduction."""
+    fm = parse_frontmatter(content)
+    return fm.get('type', '').lower() == 'intro'
+
+
 def send_message(filepath: Path):
-    """Send a single message file."""
+    """Send a single message file to one or more recipients."""
     if not filepath.exists():
         print(f"ERROR: File not found: {filepath}")
         return False
@@ -64,32 +122,40 @@ def send_message(filepath: Path):
     filename = filepath.name
     msg_id = filepath.stem
 
-    # Determine topic from filename (e.g., "2026-03-15-001-lja-to-major-tom")
-    # Extract recipient from filename pattern
-    if "lja-to-major-tom" in msg_id:
-        topic = f"agent-sync/lja-to-major-tom/{msg_id}"
-    elif "lja-to-gca" in msg_id:
-        topic = f"agent-sync/lja-to-gca/{msg_id}"
-    elif "lja-to-houston" in msg_id:
-        topic = f"agent-sync/lja-to-houston/{msg_id}"
-    else:
-        # Default to major-tom
-        topic = f"agent-sync/lja-to-major-tom/{msg_id}"
+    # Check if this is an intro message
+    is_intro = is_intro_message(content)
+
+    # Parse recipients from frontmatter
+    recipients = parse_recipients(content)
 
     payload = json.dumps({
         "filename": filename,
         "content": content,
+        "from": AGENT_ID,
+        "to": recipients,
+        "is_intro": is_intro,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     })
 
     client = get_client()
     client.loop_start()
-    result = client.publish(topic, payload, retain=True, qos=1)
-    result.wait_for_publish(timeout=5)
+
+    if is_intro:
+        # Intro messages go to the special intro topic (broadcast)
+        topic = INTRO_TOPIC
+        result = client.publish(topic, payload, retain=True, qos=1)
+        result.wait_for_publish(timeout=5)
+        print(f"Sent INTRO: {filename} -> {topic}")
+    else:
+        # Regular messages go to each recipient's topic
+        for recipient in recipients:
+            topic = f"agent-sync/{AGENT_ID}-to-{recipient}/{msg_id}"
+            result = client.publish(topic, payload, retain=True, qos=1)
+            result.wait_for_publish(timeout=5)
+            print(f"Sent: {filename} -> {topic}")
+
     client.loop_stop()
     client.disconnect()
-
-    print(f"Sent: {filename} -> {topic}")
 
     # Move to archive
     dest = ARCHIVE / filename
@@ -113,27 +179,40 @@ def send_all():
 
 
 def receive_messages():
-    """Receive messages from any agent addressed to LJA."""
-    # Subscribe to all messages sent to lja
-    recv_patterns = [
-        "agent-sync/major-tom-to-lja/+",
-        "agent-sync/gca-to-lja/+",
-        "agent-sync/houston-to-lja/+"
-    ]
+    """Receive messages from any agent addressed to LJA, plus intro broadcasts."""
+    # Subscribe to all agent-sync messages and filter in callback
+    # (MQTT + wildcard must be entire topic level, can't do "+-to-lja")
+    recv_pattern = "agent-sync/#"
 
     received = []
 
     def on_message(client, userdata, msg):
+        topic = msg.topic
+
+        # Filter: only accept messages TO this agent or intro broadcasts
+        is_to_me = f"-to-{AGENT_ID}/" in topic
+        is_intro_topic = topic.startswith("agent-sync/intro/")
+
+        if not is_to_me and not is_intro_topic:
+            return
+
         try:
             payload = json.loads(msg.payload.decode())
             filename = payload.get("filename", f"msg-{int(time.time())}.md")
             content = payload.get("content", msg.payload.decode())
+            is_intro = payload.get("is_intro", False)
+            sender = payload.get("from", "unknown")
+
+            # Skip our own intro messages
+            if is_intro and sender == AGENT_ID:
+                return
 
             dest = INBOX / filename
             archived = ARCHIVE / filename
             if not dest.exists() and not archived.exists():
                 dest.write_text(content)
-                print(f"Received: {filename}")
+                msg_type = "INTRO" if is_intro else "message"
+                print(f"Received {msg_type} from {sender}: {filename}")
                 received.append(filename)
             else:
                 print(f"Already have: {filename}")
@@ -146,9 +225,8 @@ def receive_messages():
 
     client = get_client()
     client.on_message = on_message
-    for pattern in recv_patterns:
-        client.subscribe(pattern)
-        print(f"Subscribed: {pattern}")
+    client.subscribe(recv_pattern)
+    print(f"Subscribed: {recv_pattern}")
 
     client.loop_start()
     time.sleep(2)
