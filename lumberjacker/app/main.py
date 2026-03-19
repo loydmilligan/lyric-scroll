@@ -603,10 +603,13 @@ async def main():
             return
         interval_minutes = options.get("triage_interval", 60)
         interval_seconds = interval_minutes * 60
-        logger.info(f"AI triage loop starting (interval: {interval_minutes} minutes)")
-        # Initial delay to let issues accumulate
-        await asyncio.sleep(30)
+        check_interval = options.get("check_interval", 60)
+        # Wait for first watcher cycle to complete before starting triage
+        initial_delay = check_interval + 10  # Add 10s buffer
+        logger.info(f"AI triage loop starting (initial delay: {initial_delay}s, interval: {interval_minutes} minutes)")
+        await asyncio.sleep(initial_delay)
         while True:
+            logger.info("Checking for untriaged issues...")
             # Get untriaged open issues
             untriaged = [
                 issue for issue in watcher.issues.values()
@@ -617,7 +620,7 @@ async def main():
                 await ai_engine.triage(untriaged)
                 watcher._write_output()  # Update output file with AI fields
             else:
-                logger.debug("No untriaged issues, skipping AI triage")
+                logger.info("No untriaged issues, skipping AI triage")
             await asyncio.sleep(interval_seconds)
 
     if ai_engine:

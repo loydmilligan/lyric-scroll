@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.3
+
+- Fix AI triage timing bug: initial delay now waits for first watcher cycle
+  - Changed from fixed 30s to `check_interval + 10s` buffer (~70s default)
+  - Ensures issues are detected before first triage runs
+- Improve AI triage logging visibility
+  - "No untriaged issues, skipping" now logs at INFO level (was DEBUG)
+  - Added "Checking for untriaged issues..." log before each check
+
 ## 0.4.2
 
 - Run AI triage 30 seconds after startup instead of waiting full interval
