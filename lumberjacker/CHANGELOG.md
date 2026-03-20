@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.6.0
+
+### KPI Dashboard & Smart Re-triage
+
+**KPI Dashboard:**
+- Visual KPI cards showing: Triaged (total/actionable), Tasks Created, Pending Review, Resolved
+- Total occurrences eliminated counter (celebrate impact!)
+- Batch progress indicator during active triage
+
+**Issue List Enhancements:**
+- Visual badges: Triaged (blue), Action (orange), Task Created (green), Resolved (purple)
+- "Queue for Review" button on triaged issues
+- Queued items tracked in triage log
+
+**Smart Re-triage:**
+- Issues marked "not actionable" are re-triaged if:
+  - Count increases by 10+ since last triage, OR
+  - 24+ hours have passed since last decision
+- Prevents wasting cycles on recurring issues that were too-quickly dismissed
+- Tracks `triage_count_at` to compare occurrence growth
+
+**Resolution Tracking:**
+- Subscribe to `agent-sync/tasks/resolved/#` for GC resolution notices
+- Track: resolution time, total occurrences at resolution, days active
+- Impact notes: "Eliminated recurring error with 1523 occurrences over 15 days"
+- Resolved issues logged to `/share/lumberjacker/resolved-issues.json`
+- `GET /api/resolved` endpoint for resolution stats
+
+**New API Endpoints:**
+- `GET /api/resolved` - Resolution history with impact stats
+- `POST /api/issues/{id}/queue-review` - Queue issue for manual review
+- Triage stats added to `GET /api/issues` response
+
 ## 0.5.0
 
 ### Triage Review System

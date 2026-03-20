@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 OPTIONS_PATH = Path("/data/options.json")
 OUTPUT_PATH = Path("/share/lumberjacker/issues.json")
 STATE_PATH = Path("/data/lumberjacker_state.json")
+RESOLVED_ISSUES_PATH = Path("/share/lumberjacker/resolved-issues.json")
 
 # Supervisor API
 SUPERVISOR_URL = "http://supervisor/core/logs"
@@ -100,6 +101,11 @@ class Issue:
         self.ai_triaged_at: str | None = None
         self.ai_actionable: bool | None = None
         self.ai_suggested_action: str | None = None
+        self.triage_count_at: int = 0
+        # Resolution tracking fields
+        self.resolved_at: str | None = None
+        self.resolved_by: str | None = None
+        self.final_count: int = 0
 
     def _calculate_priority(self) -> str:
         """Calculate priority based on severity and patterns."""
@@ -160,6 +166,10 @@ class Issue:
             "ai_triaged_at": self.ai_triaged_at,
             "ai_actionable": self.ai_actionable,
             "ai_suggested_action": self.ai_suggested_action,
+            "triage_count_at": self.triage_count_at,
+            "resolved_at": self.resolved_at,
+            "resolved_by": self.resolved_by,
+            "final_count": self.final_count,
         }
 
     @classmethod
@@ -182,6 +192,10 @@ class Issue:
         issue.ai_triaged_at = data.get("ai_triaged_at")
         issue.ai_actionable = data.get("ai_actionable")
         issue.ai_suggested_action = data.get("ai_suggested_action")
+        issue.triage_count_at = data.get("triage_count_at", 0)
+        issue.resolved_at = data.get("resolved_at")
+        issue.resolved_by = data.get("resolved_by")
+        issue.final_count = data.get("final_count", 0)
         return issue
 
 
@@ -370,6 +384,66 @@ class LogWatcher:
                 return True
         return False
 
+    def resolve_issue(self, issue_id: str, task_id: str) -> bool:
+        """Mark an issue as resolved and log to resolved issues file."""
+        for issue in self.issues.values():
+            if issue.id == issue_id:
+                # Update issue status
+                issue.status = "resolved"
+                issue.resolved_at = datetime.now().isoformat()
+                issue.resolved_by = task_id
+                issue.final_count = issue.count
+
+                # Calculate days active
+                try:
+                    first_dt = datetime.fromisoformat(issue.first_seen.replace('Z', '+00:00'))
+                    resolved_dt = datetime.fromisoformat(issue.resolved_at)
+                    days_active = (resolved_dt - first_dt).days
+                except Exception:
+                    days_active = 0
+
+                # Create resolved issue record
+                resolved_record = {
+                    "resolved_at": issue.resolved_at,
+                    "issue_id": issue.id,
+                    "task_id": task_id,
+                    "component": issue.component,
+                    "message": issue.message[:200],
+                    "first_seen": issue.first_seen,
+                    "total_occurrences": issue.final_count,
+                    "days_active": days_active,
+                    "impact_note": f"Eliminated recurring error with {issue.final_count} occurrences over {days_active} days"
+                }
+
+                # Append to resolved issues log
+                self._append_resolved_issue(resolved_record)
+
+                # Update main output
+                self._write_output()
+
+                logger.info(f"Issue {issue_id} resolved by task {task_id} ({issue.final_count} occurrences)")
+                return True
+        return False
+
+    def _append_resolved_issue(self, resolved_record: dict):
+        """Append a resolved issue to the resolved issues log."""
+        RESOLVED_ISSUES_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing resolved issues
+        if RESOLVED_ISSUES_PATH.exists():
+            try:
+                resolved_data = json.loads(RESOLVED_ISSUES_PATH.read_text())
+            except Exception:
+                resolved_data = {"resolved_issues": []}
+        else:
+            resolved_data = {"resolved_issues": []}
+
+        # Append new record
+        resolved_data["resolved_issues"].append(resolved_record)
+
+        # Write back to file
+        RESOLVED_ISSUES_PATH.write_text(json.dumps(resolved_data, indent=2))
+
     async def close(self):
         """Close the HTTP session."""
         if self.session:
@@ -394,9 +468,11 @@ class WebServer:
         self.app.router.add_post("/api/triage", self.handle_triage)
         self.app.router.add_get("/api/triage/status", self.handle_triage_status)
         self.app.router.add_post("/api/test-issues", self.handle_test_issues)
+        self.app.router.add_get("/api/resolved", self.handle_resolved)
         # Triage review endpoints
         self.app.router.add_get("/api/triage-log", self.handle_get_triage_log)
         self.app.router.add_post("/api/triage-log/{triage_id}/review", self.handle_review_triage)
+        self.app.router.add_post("/api/issues/{issue_id}/queue-review", self.handle_queue_review)
         self.app.router.add_get("/api/process-improvements", self.handle_get_process_improvements)
         self.app.router.add_post("/api/process-improvements", self.handle_add_process_improvement)
 
@@ -415,6 +491,13 @@ class WebServer:
                 .stat { background: #16213e; padding: 1rem; border-radius: 8px; text-align: center; min-width: 80px; }
                 .stat-value { font-size: 2rem; font-weight: bold; }
                 .stat-label { font-size: 0.8rem; color: #888; }
+                .kpi-section { margin-bottom: 2rem; }
+                .kpi-title { color: #888; font-size: 0.9rem; margin-bottom: 0.5rem; }
+                .kpi-cards { display: flex; gap: 1rem; flex-wrap: wrap; }
+                .kpi-card { background: #16213e; padding: 1rem; border-radius: 8px; min-width: 150px; }
+                .kpi-card-value { font-size: 1.5rem; font-weight: bold; color: #e94560; }
+                .kpi-card-label { font-size: 0.8rem; color: #888; margin-top: 0.3rem; }
+                .kpi-card-detail { font-size: 0.7rem; color: #666; margin-top: 0.2rem; }
                 .critical .stat-value { color: #e94560; }
                 .high .stat-value { color: #ff6b35; }
                 .medium .stat-value { color: #f9a825; }
@@ -428,12 +511,20 @@ class WebServer:
                 .issue-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
                 .issue-meta { font-size: 0.8rem; color: #888; }
                 .issue-message { font-family: monospace; font-size: 0.9rem; word-break: break-word; }
-                .badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
+                .badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; margin-right: 0.3rem; }
                 .badge-critical { background: #e94560; }
                 .badge-high { background: #ff6b35; }
                 .badge-medium { background: #f9a825; color: #000; }
                 .badge-low { background: #4caf50; }
+                .badge-triaged { background: #2196f3; }
+                .badge-action { background: #ff9800; }
+                .badge-task { background: #4caf50; }
+                .badge-resolved { background: #9c27b0; }
+                .badge-queued { background: #607d8b; }
                 .empty { color: #888; font-style: italic; padding: 2rem; text-align: center; }
+                .queue-review-btn { background: transparent; border: 1px solid #888; color: #888; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem; margin-left: 0.3rem; }
+                .queue-review-btn:hover { background: #333; border-color: #aaa; color: #aaa; }
+                .queued-text { color: #888; font-size: 0.7rem; margin-left: 0.3rem; font-style: italic; }
                 .refresh-btn { background: #e94560; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
                 .refresh-btn:hover { background: #d63050; }
                 .triage-btn { background: #4caf50; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; margin-left: 0.5rem; }
@@ -451,14 +542,68 @@ class WebServer:
             <button class="triage-btn" id="triageBtn" onclick="runTriage()" style="display:none;">Run AI Triage</button>
             <button class="test-btn" onclick="generateTestIssues()">Generate Test Issues</button>
             <div class="status" id="status"></div>
+            <div class="kpi-section">
+                <div class="kpi-title">TRIAGE METRICS</div>
+                <div class="kpi-cards" id="kpiCards"></div>
+            </div>
             <div class="stats" id="stats"></div>
             <div class="issues" id="issues"></div>
             <script>
+                let triageLogEntries = [];
+
+                async function loadTriageLog() {
+                    try {
+                        const res = await fetch('api/triage-log');
+                        const data = await res.json();
+                        triageLogEntries = data.entries || [];
+                    } catch (err) {
+                        console.error('Failed to load triage log:', err);
+                        triageLogEntries = [];
+                    }
+                }
+
                 async function loadIssues() {
+                    await loadTriageLog();
+
                     const res = await fetch('api/issues');
                     const data = await res.json();
 
                     document.getElementById('status').textContent = `Last updated: ${data.generated_at || 'never'} | Total issues: ${data.total_issues || 0}`;
+
+                    // Render KPI cards
+                    const stats = data.triage_stats || {};
+                    let kpiHtml = `
+                        <div class="kpi-card">
+                            <div class="kpi-card-value">${stats.total_triaged || 0}</div>
+                            <div class="kpi-card-label">Triaged</div>
+                            <div class="kpi-card-detail">${stats.actionable || 0} actionable</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-card-value">${stats.tasks_created || 0}</div>
+                            <div class="kpi-card-label">Tasks Created</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-card-value">${stats.pending_review || 0}</div>
+                            <div class="kpi-card-label">Pending Review</div>
+                            <div class="kpi-card-detail">${stats.queued_for_review || 0} queued</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-card-value">${stats.resolved || 0}</div>
+                            <div class="kpi-card-label">Resolved</div>
+                            <div class="kpi-card-detail">${stats.total_occurrences_resolved || 0} occurrences eliminated</div>
+                        </div>
+                    `;
+
+                    if (stats.in_progress_batch) {
+                        kpiHtml += `
+                            <div class="kpi-card">
+                                <div class="kpi-card-value">${stats.in_progress_batch.current}/${stats.in_progress_batch.total}</div>
+                                <div class="kpi-card-label">Current Batch</div>
+                            </div>
+                        `;
+                    }
+
+                    document.getElementById('kpiCards').innerHTML = kpiHtml;
 
                     document.getElementById('stats').innerHTML = `
                         <div class="stat critical"><div class="stat-value">${data.by_priority?.critical || 0}</div><div class="stat-label">Critical</div></div>
@@ -473,16 +618,47 @@ class WebServer:
                         return;
                     }
 
-                    document.getElementById('issues').innerHTML = issues.map(i => `
-                        <div class="issue ${i.priority}">
-                            <div class="issue-header">
-                                <span><span class="badge badge-${i.priority}">${i.priority}</span> <strong>${i.component}</strong></span>
-                                <span class="issue-meta">${i.count}x | ${i.category}</span>
+                    document.getElementById('issues').innerHTML = issues.map(i => {
+                        let badges = `<span class="badge badge-${i.priority}">${i.priority}</span>`;
+
+                        if (i.ai_triaged_at) {
+                            badges += '<span class="badge badge-triaged">Triaged</span>';
+                        }
+                        if (i.ai_actionable) {
+                            badges += '<span class="badge badge-action">Action</span>';
+                        }
+                        if (i.task_id) {
+                            badges += '<span class="badge badge-task">Task Created</span>';
+                        }
+                        if (i.resolved_at) {
+                            badges += '<span class="badge badge-resolved">Resolved</span>';
+                        }
+
+                        // Check if this issue is queued for review in triage log
+                        const triageEntry = triageLogEntries.find(e => e.issue_id === i.id);
+                        const isQueued = triageEntry && triageEntry.review && triageEntry.review.queued;
+
+                        // Add queue button or queued status if issue has been triaged
+                        let queueControl = '';
+                        if (i.ai_triaged_at) {
+                            if (isQueued) {
+                                queueControl = '<span class="queued-text">Queued</span>';
+                            } else {
+                                queueControl = `<button class="queue-review-btn" onclick="queueForReview('${i.id}')">Queue for Review</button>`;
+                            }
+                        }
+
+                        return `
+                            <div class="issue ${i.priority}">
+                                <div class="issue-header">
+                                    <span>${badges}${queueControl} <strong>${i.component}</strong></span>
+                                    <span class="issue-meta">${i.count}x | ${i.category}</span>
+                                </div>
+                                <div class="issue-message">${escapeHtml(i.message)}</div>
+                                <div class="issue-meta">First: ${i.first_seen} | Last: ${i.last_seen}</div>
                             </div>
-                            <div class="issue-message">${escapeHtml(i.message)}</div>
-                            <div class="issue-meta">First: ${i.first_seen} | Last: ${i.last_seen}</div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
 
                 function escapeHtml(text) {
@@ -548,6 +724,23 @@ class WebServer:
                     }
                 }
 
+                async function queueForReview(issueId) {
+                    document.getElementById('status').textContent = 'Queuing issue for review...';
+                    try {
+                        const res = await fetch(`api/issues/${issueId}/queue-review`, {method: 'POST'});
+                        const data = await res.json();
+
+                        if (data.error) {
+                            document.getElementById('status').textContent = `Error: ${data.error}`;
+                        } else {
+                            document.getElementById('status').textContent = 'Issue queued for review';
+                            await loadIssues();
+                        }
+                    } catch (err) {
+                        document.getElementById('status').textContent = `Error: ${err.message}`;
+                    }
+                }
+
                 loadIssues();
                 checkTriageStatus();
                 setInterval(loadIssues, 30000);
@@ -558,10 +751,62 @@ class WebServer:
         return web.Response(text=html, content_type="text/html")
 
     async def handle_issues(self, request):
-        """API: Get triaged issues."""
+        """API: Get triaged issues with triage stats."""
         if OUTPUT_PATH.exists():
-            return web.json_response(json.loads(OUTPUT_PATH.read_text()))
-        return web.json_response({"issues": [], "total_issues": 0, "by_priority": {}})
+            data = json.loads(OUTPUT_PATH.read_text())
+        else:
+            data = {"issues": [], "total_issues": 0, "by_priority": {}}
+
+        # Calculate triage stats
+        issues = data.get("issues", [])
+
+        # Count triaged issues
+        total_triaged = sum(1 for i in issues if i.get("ai_triaged_at"))
+        actionable = sum(1 for i in issues if i.get("ai_actionable"))
+        not_actionable = sum(1 for i in issues if i.get("ai_triaged_at") and not i.get("ai_actionable"))
+        tasks_created = sum(1 for i in issues if i.get("task_id"))
+
+        # Count pending review from triage log
+        pending_review = 0
+        queued_for_review = 0
+        if TRIAGE_LOG_PATH.exists():
+            try:
+                triage_log = json.loads(TRIAGE_LOG_PATH.read_text())
+                pending_review = sum(1 for e in triage_log.get("entries", []) if not e.get("reviewed", False))
+                queued_for_review = sum(1 for e in triage_log.get("entries", []) if e.get("review", {}).get("queued", False))
+            except Exception:
+                pass
+
+        # Check if triage is in progress (read from ai_engine if available)
+        in_progress_batch = None
+        # This will be populated by the AI engine when batching is active
+
+        # Count resolved issues
+        resolved_count = 0
+        total_occurrences_resolved = 0
+        if RESOLVED_ISSUES_PATH.exists():
+            try:
+                resolved_data = json.loads(RESOLVED_ISSUES_PATH.read_text())
+                resolved_issues = resolved_data.get("resolved_issues", [])
+                resolved_count = len(resolved_issues)
+                total_occurrences_resolved = sum(issue.get("total_occurrences", 0) for issue in resolved_issues)
+            except Exception:
+                pass
+
+        # Add triage stats to response
+        data["triage_stats"] = {
+            "total_triaged": total_triaged,
+            "actionable": actionable,
+            "not_actionable": not_actionable,
+            "tasks_created": tasks_created,
+            "pending_review": pending_review,
+            "queued_for_review": queued_for_review,
+            "in_progress_batch": in_progress_batch,
+            "resolved": resolved_count,
+            "total_occurrences_resolved": total_occurrences_resolved,
+        }
+
+        return web.json_response(data)
 
     async def handle_dismiss(self, request):
         """API: Dismiss an issue."""
@@ -587,16 +832,18 @@ class WebServer:
                 status=400
             )
 
-        # Get untriaged open issues
-        untriaged = [
+        # Get untriaged open issues AND issues that need re-triaging
+        to_triage = [
             issue for issue in self.watcher.issues.values()
-            if issue.status == "open" and issue.task_id is None
+            if issue.status == "open" and (
+                issue.task_id is None or self.ai_engine.needs_retriage(issue)
+            )
         ]
 
-        if not untriaged:
+        if not to_triage:
             return web.json_response({"status": "no_issues", "triaged": 0})
 
-        results = await self.ai_engine.triage(untriaged)
+        results = await self.ai_engine.triage(to_triage)
         self.watcher._write_output()  # Update output file
 
         return web.json_response({
@@ -809,6 +1056,52 @@ class WebServer:
             "total": len(improvements),
         })
 
+    async def handle_queue_review(self, request):
+        """API: Queue an issue for review."""
+        issue_id = request.match_info["issue_id"]
+
+        # Load triage log
+        if not TRIAGE_LOG_PATH.exists():
+            return web.json_response({"error": "Triage log not found"}, status=404)
+
+        try:
+            triage_log = json.loads(TRIAGE_LOG_PATH.read_text())
+        except Exception as e:
+            logger.error(f"Failed to read triage log: {e}")
+            return web.json_response({"error": "Failed to read triage log"}, status=500)
+
+        # Find the triage entry for this issue
+        entries = triage_log.get("entries", [])
+        entry_found = False
+
+        for entry in entries:
+            if entry.get("issue_id") == issue_id:
+                # Ensure review object exists
+                if "review" not in entry:
+                    entry["review"] = {}
+
+                # Set queued flag
+                entry["review"]["queued"] = True
+                entry["review"]["queued_at"] = datetime.now().isoformat()
+
+                entry_found = True
+                break
+
+        if not entry_found:
+            return web.json_response({"error": "Issue not found in triage log"}, status=404)
+
+        # Write back to file
+        try:
+            TRIAGE_LOG_PATH.write_text(json.dumps(triage_log, indent=2))
+        except Exception as e:
+            logger.error(f"Failed to write triage log: {e}")
+            return web.json_response({"error": "Failed to save queue status"}, status=500)
+
+        return web.json_response({
+            "status": "queued",
+            "issue_id": issue_id,
+        })
+
     async def handle_add_process_improvement(self, request):
         """API: Record a process improvement decision."""
         try:
@@ -861,6 +1154,30 @@ class WebServer:
             "id": improvement_data["id"],
         })
 
+    async def handle_resolved(self, request):
+        """API: Get resolved issues with impact stats."""
+        if not RESOLVED_ISSUES_PATH.exists():
+            return web.json_response({
+                "resolved_issues": [],
+                "total_resolved": 0,
+                "total_occurrences_eliminated": 0
+            })
+
+        try:
+            resolved_data = json.loads(RESOLVED_ISSUES_PATH.read_text())
+        except Exception as e:
+            logger.error(f"Failed to read resolved issues: {e}")
+            return web.json_response({"error": "Failed to read resolved issues"}, status=500)
+
+        resolved_issues = resolved_data.get("resolved_issues", [])
+        total_occurrences = sum(issue.get("total_occurrences", 0) for issue in resolved_issues)
+
+        return web.json_response({
+            "resolved_issues": resolved_issues,
+            "total_resolved": len(resolved_issues),
+            "total_occurrences_eliminated": total_occurrences
+        })
+
 
 async def main():
     """Main entry point."""
@@ -879,6 +1196,19 @@ async def main():
     mqtt_publisher = None
 
     if options.get("ai_triage_enabled") and options.get("openrouter_api_key"):
+        # Define callback for task resolution
+        def handle_task_resolved(payload: dict):
+            """Handle task resolution messages from MQTT."""
+            task_id = payload.get("task_id")
+            issue_id = payload.get("metadata", {}).get("issue_id")
+
+            if not issue_id:
+                logger.warning(f"Task {task_id} resolved but no issue_id in metadata")
+                return
+
+            logger.info(f"Handling resolution: task={task_id}, issue={issue_id}")
+            watcher.resolve_issue(issue_id, task_id)
+
         # Initialize MQTT publisher
         mqtt_broker = options.get("mqtt_broker", "")
         if mqtt_broker:
@@ -887,6 +1217,7 @@ async def main():
                 port=options.get("mqtt_port", 1883),
                 username=options.get("mqtt_user", ""),
                 password=options.get("mqtt_password", ""),
+                on_task_resolved=handle_task_resolved,
             )
             if mqtt_publisher.connect():
                 logger.info("MQTT task publisher connected")
@@ -932,17 +1263,19 @@ async def main():
         await asyncio.sleep(initial_delay)
         while True:
             logger.info("Checking for untriaged issues...")
-            # Get untriaged open issues
-            untriaged = [
+            # Get untriaged open issues AND issues that need re-triaging
+            to_triage = [
                 issue for issue in watcher.issues.values()
-                if issue.status == "open" and issue.task_id is None
+                if issue.status == "open" and (
+                    issue.task_id is None or ai_engine.needs_retriage(issue)
+                )
             ]
-            if untriaged:
-                logger.info(f"Running AI triage on {len(untriaged)} untriaged issues")
-                await ai_engine.triage(untriaged)
+            if to_triage:
+                logger.info(f"Running AI triage on {len(to_triage)} issues")
+                await ai_engine.triage(to_triage)
                 watcher._write_output()  # Update output file with AI fields
             else:
-                logger.info("No untriaged issues, skipping AI triage")
+                logger.info("No issues to triage, skipping AI triage")
             await asyncio.sleep(interval_seconds)
 
     if ai_engine:

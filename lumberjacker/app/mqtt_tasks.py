@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 TASKS_TOPIC = "agent-sync/tasks/pending"
 STATUS_TOPIC = "agent-sync/tasks/status/#"
+RESOLVED_TOPIC = "agent-sync/tasks/resolved/#"
 
 
 class MQTTTaskPublisher:
@@ -27,12 +28,14 @@ class MQTTTaskPublisher:
         username: str = "",
         password: str = "",
         on_status_update: Optional[Callable[[dict], None]] = None,
+        on_task_resolved: Optional[Callable[[dict], None]] = None,
     ):
         self.broker = broker
         self.port = port
         self.username = username
         self.password = password
         self.on_status_update = on_status_update
+        self.on_task_resolved = on_task_resolved
         self.client: Optional[mqtt.Client] = None
         self.connected = False
 
@@ -74,6 +77,9 @@ class MQTTTaskPublisher:
             # Subscribe to task status updates
             client.subscribe(STATUS_TOPIC)
             logger.info(f"Subscribed to {STATUS_TOPIC}")
+            # Subscribe to task resolution updates
+            client.subscribe(RESOLVED_TOPIC)
+            logger.info(f"Subscribed to {RESOLVED_TOPIC}")
         else:
             logger.error(f"MQTT connection failed with code: {reason_code}")
 
@@ -83,14 +89,22 @@ class MQTTTaskPublisher:
         logger.warning(f"Disconnected from MQTT broker: {reason_code}")
 
     def _on_message(self, client, userdata, msg):
-        """Handle incoming messages (task status updates)."""
+        """Handle incoming messages (task status and resolution updates)."""
         try:
             payload = json.loads(msg.payload.decode())
-            logger.info(f"Task status update: {payload.get('task_id')} -> {payload.get('status')}")
-            if self.on_status_update:
-                self.on_status_update(payload)
+
+            # Check if this is a resolved task message
+            if msg.topic.startswith("agent-sync/tasks/resolved/"):
+                logger.info(f"Task resolved: {payload.get('task_id')}")
+                if self.on_task_resolved:
+                    self.on_task_resolved(payload)
+            # Otherwise it's a status update
+            else:
+                logger.info(f"Task status update: {payload.get('task_id')} -> {payload.get('status')}")
+                if self.on_status_update:
+                    self.on_status_update(payload)
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse status message: {e}")
+            logger.error(f"Failed to parse MQTT message: {e}")
 
     def publish_task(
         self,

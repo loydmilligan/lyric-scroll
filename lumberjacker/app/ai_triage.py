@@ -7,7 +7,7 @@ and determine which should become tasks for Major Tom.
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, TYPE_CHECKING
 
 import aiohttp
@@ -99,14 +99,53 @@ class AITriageEngine:
         issue_short = issue_id[:6] if len(issue_id) >= 6 else issue_id
         return f"tr-{timestamp}-{issue_short}"
 
-    def _write_triage_log(self, batch_id: str, issues: list, results: list[dict]):
+    def needs_retriage(self, issue) -> bool:
+        """Check if an issue needs re-triaging.
+
+        An issue needs re-triage if ALL of:
+        - It was previously triaged (ai_triaged_at is set)
+        - It was marked NOT actionable (ai_actionable == False)
+        - AND one of:
+          - Count has increased by 10+ since last triage
+          - OR 24+ hours have passed since last triage
+        """
+        # Not previously triaged
+        if not issue.ai_triaged_at:
+            return False
+
+        # Was marked actionable (already has task or will get one)
+        if issue.ai_actionable:
+            return False
+
+        # Check count increase
+        count_delta = issue.count - issue.triage_count_at
+        if count_delta >= 10:
+            return True
+
+        # Check time elapsed
+        try:
+            triaged_at = datetime.fromisoformat(issue.ai_triaged_at)
+            hours_elapsed = (datetime.now() - triaged_at).total_seconds() / 3600
+            if hours_elapsed >= 24:
+                return True
+        except (ValueError, TypeError):
+            # If we can't parse the timestamp, don't re-triage based on time
+            pass
+
+        return False
+
+    def _write_triage_log(self, batch_id: str, issues: list, results: list[dict], retriaged_issue_ids: set = None):
         """Write triage decisions to log file.
 
         Args:
             batch_id: Identifier for this triage batch
             issues: List of Issue objects that were triaged
             results: List of triage result dictionaries from AI
+            retriaged_issue_ids: Set of issue IDs that are being re-triaged
         """
+        if retriaged_issue_ids is None:
+            retriaged_issue_ids = set()
+
         # Ensure directory exists
         os.makedirs(os.path.dirname(TRIAGE_LOG_PATH), exist_ok=True)
 
@@ -134,6 +173,7 @@ class AITriageEngine:
                 "triage_id": self._generate_triage_id(issue_id),
                 "timestamp": timestamp,
                 "batch_id": batch_id,
+                "is_retriage": issue_id in retriaged_issue_ids,
                 "issue": {
                     "id": issue.id,
                     "severity": issue.severity,
@@ -191,6 +231,11 @@ class AITriageEngine:
 
         await self._ensure_session()
 
+        # Track which issues are being re-triaged
+        retriaged_issue_ids = {issue.id for issue in issues if self.needs_retriage(issue)}
+        if retriaged_issue_ids:
+            logger.info(f"Re-triaging {len(retriaged_issue_ids)} recurring issues")
+
         # Generate batch ID for this triage run
         batch_id = datetime.now().strftime("batch-%Y%m%d-%H%M%S")
 
@@ -244,13 +289,14 @@ class AITriageEngine:
                     issue.ai_triaged_at = self.last_triage_at
                     issue.ai_actionable = result.get("actionable", False)
                     issue.ai_suggested_action = result.get("suggested_action", "")
+                    issue.triage_count_at = issue.count  # Record count at triage time
 
                     # Create task if needed
                     if result.get("create_task") and issue.task_id is None:
                         await self._create_task(issue, result)
 
                 # Write triage log for this batch
-                self._write_triage_log(batch_id, batch, results)
+                self._write_triage_log(batch_id, batch, results, retriaged_issue_ids)
 
                 all_results.extend(results)
                 logger.info(f"Batch {batch_num}/{total_batches} complete: {len(results)} results")
